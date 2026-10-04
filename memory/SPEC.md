@@ -81,3 +81,7 @@ memory/test_credentials.md içinde.
   tedarikçi, aşama, lojistik/rezervasyon/konteyner bilgisi.
 - **Gecikme bildirimi**: e-posta kurulmadı (kullanıcı kararı) — yalnızca uygulama içi
   7 günlük uyarı paneli (`/api/alerts`, panel + proje listesi göstergeleri).
+- **Teknik çizim sayfası**: Evraklar sekmesinde "Çizim" kategorisiyle yüklenen resimler
+  (png/jpg/jpeg/webp/gif, en çok 20 adet) proforma PDF'inin sonuna `PageBreak` ile eklenen
+  "TEKNİK ÇİZİMLER" sayfasında 2'li ızgarada, açıklama alt yazısıyla basılır
+  (`routers/proforma.py::_drawing_flowables`). Resim olmayan çizim evrakları atlanır.

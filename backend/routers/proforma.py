@@ -13,14 +13,20 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
+    Image,
     KeepTogether,
+    PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
+
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from lib.auth import current_user
 from lib.catalog import stage_labels
@@ -38,6 +44,68 @@ MUTED = colors.HexColor("#64748B")
 LINE = colors.HexColor("#CBD5E1")
 
 _FONTS_READY = False
+
+IMAGE_EXT = {"png", "jpg", "jpeg", "webp", "gif"}
+bucket = AsyncIOMotorGridFSBucket(db, bucket_name="evraklar")
+
+
+async def _drawing_flowables(proje_id: str, body, small) -> list:
+    """'Çizim' kategorisindeki resim evrakları → proformanın sonunda ayrı sayfa."""
+    docs = (
+        await db.documents.find({"proje_id": proje_id, "kategori": "cizim"})
+        .sort("created_at", 1)
+        .to_list(20)
+    )
+    cells: list = []
+    for meta in docs:
+        name = meta.get("dosya_adi", "")
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        if ext not in IMAGE_EXT:
+            continue
+        try:
+            stream = await bucket.open_download_stream(ObjectId(meta["file_id"]))
+            data = await stream.read()
+            reader = ImageReader(io.BytesIO(data))
+            iw, ih = reader.getSize()
+        except Exception:
+            continue
+        max_w, max_h = 86 * mm, 70 * mm
+        scale = min(max_w / iw, max_h / ih)
+        img = Image(io.BytesIO(data), width=iw * scale, height=ih * scale)
+        img.hAlign = "CENTER"
+        caption = meta.get("aciklama") or name
+        cells.append([img, Paragraph(f"<font size=7.5 color='#64748B'>{caption}</font>", small)])
+
+    if not cells:
+        return []
+
+    flow: list = [
+        PageBreak(),
+        Paragraph("<b>TEKNİK ÇİZİMLER</b>", body),
+        Spacer(1, 1.5 * mm),
+    ]
+    for i in range(0, len(cells), 2):
+        pair = cells[i : i + 2]
+        row_imgs = [c[0] for c in pair]
+        row_caps = [c[1] for c in pair]
+        while len(row_imgs) < 2:
+            row_imgs.append(Paragraph("", small))
+            row_caps.append(Paragraph("", small))
+        table = Table([row_imgs, row_caps], colWidths=[91 * mm, 91 * mm])
+        table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("BOX", (0, 0), (0, -1), 0.5, LINE),
+                    *([("BOX", (1, 0), (1, -1), 0.5, LINE)] if len(pair) > 1 else []),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
+        flow += [KeepTogether([table, Spacer(1, 4 * mm)])]
+    return flow
 
 
 def _register_fonts() -> tuple[str, str]:
@@ -312,6 +380,8 @@ async def proforma_pdf(proje_id: str, user: dict = Depends(current_user)):
             small,
         ),
     ]
+
+    flow += await _drawing_flowables(proje_id, body, small)
 
     doc.build(flow)
     buf.seek(0)

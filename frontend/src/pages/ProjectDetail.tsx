@@ -1170,8 +1170,12 @@ export default function ProjectDetail() {
                     onChange={(e) => setDosya(e.target.files?.[0] ?? null)}
                     data-testid="document-file-input"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground" data-testid="upload-hint">
                     En fazla 10 MB · PDF, resim, Excel, Word, DWG/DXF
+                  </p>
+                  <p className="text-[11px] text-primary" data-testid="drawing-proforma-hint">
+                    "Çizim" kategorisindeki resimler (PNG/JPG) proforma PDF'inin sonunda
+                    "Teknik Çizimler" sayfasına basılır.
                   </p>
                 </div>
                 <div className="space-y-1.5">
