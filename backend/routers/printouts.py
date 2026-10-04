@@ -24,6 +24,12 @@ from reportlab.platypus import (
 )
 
 from lib.catalog import stage_labels
+
+ODEME_DURUM_LABELS = {
+    "bekliyor": "Tahsilat Bekliyor",
+    "kismi": "Kısmi Tahsilat",
+    "tamamlandi": "Tamamlandı",
+}
 from lib.db import db
 from lib.permissions import require, user_permissions
 from routers.proforma import (
@@ -240,7 +246,10 @@ async def project_dossier(proje_id: str, user: dict = Depends(require("proje:gor
                     ),
                     ("Net Kar", _money(muh.get("net_kar", 0), cur)),
                     ("Kar %", f"{muh.get('kar_yuzdesi', 0)} %"),
-                    ("Ödeme Durumu", muh.get("odeme_durumu", "")),
+                    (
+                        "Ödeme Durumu",
+                        ODEME_DURUM_LABELS.get(muh.get("odeme_durumu", ""), "—"),
+                    ),
                     ("Toplam Tahsilat", _money(muh.get("toplam_tahsilat", 0), cur)),
                     ("Kalan Bakiye", _money(muh.get("kalan_bakiye", 0), cur)),
                 ],
@@ -386,6 +395,9 @@ async def project_dossier(proje_id: str, user: dict = Depends(require("proje:gor
         buf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="proje-{project.get("proje_kodu", "")}.pdf"'
+            "Content-Disposition": f'inline; filename="proje-{project.get("proje_kodu", "")}.pdf"',
+            # PDF her istekte yeniden üretilir; tarayıcı eski çıktıyı göstermesin.
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            "Pragma": "no-cache",
         },
     )

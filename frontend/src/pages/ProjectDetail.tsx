@@ -265,7 +265,9 @@ export default function ProjectDetail() {
 
   const proforma = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/projects/${id}/proforma`);
+      const res = await fetch(`/api/projects/${id}/proforma?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Proforma oluşturulamadı");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -439,15 +441,17 @@ export default function ProjectDetail() {
         >
           <Trash2 className="mr-2 h-4 w-4" /> Projeyi Sil
         </Button>
-        <a
-          href={`/api/projects/${id}/dosya.pdf`}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
+<Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            // Her baskıda taze PDF: tarayıcı önbelleğini atlatmak için zaman damgası.
+            window.open(`/api/projects/${id}/dosya.pdf?t=${Date.now()}`, "_blank", "noreferrer");
+          }}
           data-testid="print-project-button"
         >
           <Printer className="mr-2 h-4 w-4" /> Proje ve Detaylarını Yazdır
-        </a>
+        </Button>
         <Button
           size="sm"
           onClick={() => proforma.mutate()}

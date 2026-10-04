@@ -284,3 +284,12 @@ Eklenenler:
   satır silme; toplam/bakiye anlık güncellenir, "Tahsilatları Kaydet" ile yazılır.
 - "Satışı Kalem Toplamından Doldur" butonu satış tutarını kalem toplamıyla doldurur; alan elle
   düzeltilebilir ve satış kalem toplamından farklıysa uyarı metni görünür.
+
+## Yazdırılabilir PDF önbellek düzeltmesi
+- Kök neden: "Proje ve Detaylarını Yazdır" düz bir <a href> idi ve PDF yanıtında önbellek başlığı
+  yoktu; tarayıcı ilk üretilen PDF'i önbellekten tekrar gösteriyordu.
+- Çözüm: printouts / proforma / sandık etiketi yanıtlarına `Cache-Control: no-store, no-cache,
+  must-revalidate` + `Pragma: no-cache`; arayüzde yazdırma ve proforma istekleri `?t=<timestamp>`
+  ile açılıyor (proforma fetch'i `cache: "no-store"`).
+- Proje dosyası PDF'inde "Ödeme Durumu" artık Türkçe etiket (Tahsilat Bekliyor / Kısmi Tahsilat /
+  Tamamlandı) basılıyor.

@@ -157,6 +157,8 @@ async def crate_labels(proje_id: str, user: dict = Depends(require("proforma:olu
         buf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="sandik-etiket-{project.get("proje_kodu", "")}.pdf"'
+            "Content-Disposition": f'attachment; filename="sandik-etiket-{project.get("proje_kodu", "")}.pdf"',
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            "Pragma": "no-cache",
         },
     )
