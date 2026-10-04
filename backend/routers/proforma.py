@@ -1,4 +1,4 @@
-"""Proforma fatura PDF'i — reportlab + Liberation Sans (Türkçe karakter desteği)."""
+"""Proforma fatura PDF'i — reportlab + Nunito (Türkçe karakter desteği)."""
 
 import io
 import os
@@ -119,16 +119,17 @@ def _register_fonts() -> tuple[str, str]:
     if _FONTS_READY:
         return ("LibSans", "LibSans-Bold")
     for directory in FONT_DIRS:
-        regular = os.path.join(directory, "LiberationSans-Regular.ttf")
-        bold = os.path.join(directory, "LiberationSans-Bold.ttf")
+        regular = os.path.join(directory, "Nunito-Regular.ttf")
+        bold = os.path.join(directory, "Nunito-Bold.ttf")
         if os.path.exists(regular) and os.path.exists(bold):
             pdfmetrics.registerFont(TTFont("LibSans", regular))
             pdfmetrics.registerFont(TTFont("LibSans-Bold", bold))
+            pdfmetrics.registerFontFamily("LibSans", normal="LibSans", bold="LibSans-Bold")
             _FONTS_READY = True
             return ("LibSans", "LibSans-Bold")
     raise HTTPException(
         status_code=500,
-        detail="PDF fontu bulunamadı (assets/fonts/LiberationSans-*.ttf) — Türkçe karakterler basılamaz",
+        detail="PDF fontu bulunamadı (assets/fonts/Nunito-*.ttf) — Türkçe karakterler basılamaz",
     )
 
 

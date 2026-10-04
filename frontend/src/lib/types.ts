@@ -370,3 +370,16 @@ export interface BulkResult {
   etkilenen: number;
   bulunamayan: number;
 }
+
+export interface TrashItem {
+  id: string;
+  proje_kodu: string;
+  proje_adi: string;
+  firma: string;
+  musteri: string;
+  silindi_at: string;
+  silen: string;
+  kalan_gun: number;
+  kalem_adet: number;
+  sandik_adet: number;
+}

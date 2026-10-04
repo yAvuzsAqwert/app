@@ -556,3 +556,17 @@ class BulkIds(BaseModel):
 class BulkResult(BaseModel):
     etkilenen: int
     bulunamayan: int = 0
+
+
+# ---------- çöp kutusu ----------
+class TrashItem(BaseModel):
+    id: str
+    proje_kodu: str
+    proje_adi: str
+    firma: str
+    musteri: str
+    silindi_at: datetime
+    silen: str
+    kalan_gun: int
+    kalem_adet: int
+    sandik_adet: int

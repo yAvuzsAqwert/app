@@ -70,6 +70,12 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("token", ASCENDING)], name="token", unique=True),
         IndexModel([("created_at", ASCENDING)], name="ttl", expireAfterSeconds=60 * 60 * 24 * 30),
     ],
+    "trash": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel(
+            [("silindi_at", ASCENDING)], name="ttl30", expireAfterSeconds=60 * 60 * 24 * 30
+        ),
+    ],
     "login_attempts": [
         IndexModel([("key", ASCENDING)], name="key"),
         IndexModel([("email", ASCENDING)], name="email"),

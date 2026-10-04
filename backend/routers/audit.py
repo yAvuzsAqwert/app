@@ -86,26 +86,12 @@ async def bulk_archive(payload: BulkIds, user: dict = Depends(require("proje:sil
 
 @router.post("/projects/bulk/delete", response_model=BulkResult)
 async def bulk_delete(payload: BulkIds, user: dict = Depends(require("proje:sil"))):
-    """Seçili projeleri kalemleri, sandıkları ve geçmişiyle birlikte kalıcı siler."""
+    """Seçili projeleri çöp kutusuna taşır — 30 gün içinde geri getirilebilir."""
     if not payload.ids:
         raise HTTPException(status_code=400, detail="Proje seçilmedi")
+    from routers.trash import move_to_trash
+
     docs = await db.projects.find({"id": {"$in": payload.ids}}).to_list(500)
-    ids = [d["id"] for d in docs]
-    if ids:
-        await db.project_items.delete_many({"proje_id": {"$in": ids}})
-        await db.project_crates.delete_many({"proje_id": {"$in": ids}})
-        await db.activities.delete_many({"proje_id": {"$in": ids}})
-        await db.proforma_versions.delete_many({"proje_id": {"$in": ids}})
-        await db.projects.delete_many({"id": {"$in": ids}})
-        for doc in docs:
-            await db.activities.insert_one(
-                Activity(
-                    proje_id=doc["id"],
-                    proje_kodu=doc.get("proje_kodu", ""),
-                    tip="silme",
-                    mesaj=f"Toplu silme: {doc.get('proje_adi', '')} kalıcı olarak silindi",
-                    kullanici=user.get("ad_soyad", ""),
-                    gun=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                ).model_dump()
-            )
-    return BulkResult(etkilenen=len(ids), bulunamayan=len(payload.ids) - len(ids))
+    for doc in docs:
+        await move_to_trash(doc, user)
+    return BulkResult(etkilenen=len(docs), bulunamayan=len(payload.ids) - len(docs))

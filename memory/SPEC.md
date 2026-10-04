@@ -32,7 +32,7 @@ Tüm endpointler `api_router` üzerinde `/api` altında. Frontend `src/lib/api.t
 - **Termin uyarıları** (`routers/projects.py::build_alerts`): 7 günlük pencere, `today_iso()`
   anchorlı. `termin_tarihi` ve `sevk_tarihi` için ayrı uyarı; seviye `gecikti|bugun|yaklasiyor`.
   Sevk sonrası aşamalar (yuklendi_sevk, fatura, gumruk_beyanname, tamamlandi) ve arşiv hariç.
-- **Proforma PDF** (`routers/proforma.py`): reportlab + Liberation Sans (Türkçe glif). Başlık
+- **Proforma PDF** (`routers/proforma.py`): reportlab + Nunito (Türkçe glif). Başlık
   `COMPANY_NAME` env (varsayılan **DIAGONAL**). Kalem tablosu teknik özellik satırıyla, iskonto /
   transfer / genel toplam, banka + not bloğu.
 - **Evraklar** (`routers/documents.py`): GridFS bucket `evraklar` + `documents` meta koleksiyonu.
@@ -180,7 +180,7 @@ memory/test_credentials.md içinde.
   o kullanıcının oturumları kapatılır. Arayüz: Kullanıcılar & Yetkiler tablosunda anahtar ikonu.
 
 ## Sürüm 6.4 — PDF Türkçe karakter + yazdırma
-- PDF fontu (`LiberationSans-Regular/Bold.ttf`) artık depoya gömülü:
+- PDF fontu (`Nunito-Regular/Bold.ttf`) artık depoya gömülü:
   `backend/assets/fonts/`. `routers/proforma.py::_register_fonts` önce gömülü dizine,
   sonra sistem dizinine bakar; font yoksa Helvetica'ya DÜŞMEZ, 500 ile uyarır
   (eski davranışta üretim imajında sistem fontu olmadığı için Türkçe karakterler bozuluyordu).
@@ -223,3 +223,19 @@ Eklenenler:
   `POST /api/projects/bulk/archive` (`{ids, arsiv}`) ve `POST /api/projects/bulk/delete`
   (`{ids}`) — yetki `proje:sil`, boş liste 400, yanıt `{etkilenen, bulunamayan}`.
   Toplu silme onay diyaloğu ister ve her proje için günlüğe "Toplu silme" kaydı yazar.
+
+## Çöp Kutusu (30 gün)
+- Proje silme (tek ve toplu) artık kalıcı değil: proje + kalemler + sandıklar + revizyonlar +
+  aktiviteler `trash` koleksiyonunda tek dokümana taşınır (`backend/routers/trash.py`).
+- `silindi_at` üzerinde 30 günlük TTL indeksi (`lib/db.py` → trash.ttl30) kayıtları otomatik siler.
+- Endpointler (`proje:sil` yetkisi): `GET /api/trash`, `GET /api/trash/bilgi`,
+  `POST /api/trash/{id}/restore` (aktif proje varsa 409), `DELETE /api/trash/{id}` (kalıcı).
+- UI: `/cop-kutusu` → `frontend/src/pages/Trash.tsx`, menüde "Çöp Kutusu"; kalan gün rozeti,
+  Geri Getir ve Kalıcı Sil (onay diyaloğu). Geri getirme ve silme işlem günlüğüne yazılır.
+
+## Tipografi
+- Tüm arayüz (başlık + gövde) ve PDF çıktıları Nunito kullanır.
+- Frontend: `@fontsource-variable/nunito`, `--font-heading`/`--font-sans` = 'Nunito Variable'.
+- PDF: `backend/assets/fonts/Nunito-Regular.ttf` + `Nunito-Bold.ttf` (variable fonttan üretilen
+  statik örnekler), `routers/proforma.py::_register_fonts` ile kaydedilir; proforma, proje
+  dosyası ve sandık etiketleri bu kayıttan beslenir.

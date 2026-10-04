@@ -286,12 +286,12 @@ async def toggle_archive(proje_id: str, user: dict = Depends(require("proje:sil"
 
 @router.delete("/projects/{proje_id}")
 async def delete_project(proje_id: str, user: dict = Depends(require("proje:sil"))):
-    await _get_project(proje_id)
-    await db.projects.delete_one({"id": proje_id})
-    await db.project_items.delete_many({"proje_id": proje_id})
-    await db.project_crates.delete_many({"proje_id": proje_id})
-    await db.activities.delete_many({"proje_id": proje_id})
-    return {"ok": True}
+    """Proje çöp kutusuna taşınır — 30 gün içinde geri getirilebilir."""
+    from routers.trash import move_to_trash
+
+    doc = await _get_project(proje_id)
+    await move_to_trash(doc, user)
+    return {"ok": True, "cop_kutusu": True}
 
 
 # ---------------- accounting ----------------

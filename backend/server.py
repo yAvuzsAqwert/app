@@ -24,6 +24,7 @@ from routers.admin import router as admin_router
 from routers.branding import router as branding_router
 from routers.portal import router as portal_router
 from routers.audit import router as audit_router
+from routers.trash import router as trash_router
 from routers.printouts import router as printouts_router
 from routers.proforma import router as proforma_router
 from routers.projects import router as projects_router
@@ -65,6 +66,7 @@ api_router.include_router(admin_router)
 api_router.include_router(branding_router)
 api_router.include_router(printouts_router)
 api_router.include_router(audit_router)
+api_router.include_router(trash_router)
 api_router.include_router(proforma_router)
 api_router.include_router(reports_router)
 

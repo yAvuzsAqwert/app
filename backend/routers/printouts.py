@@ -1,6 +1,6 @@
 """Yazdırılabilir çıktılar — proje dosyası (tüm detaylar) PDF'i.
 
-Türkçe karakterler için depoya gömülü Liberation Sans kullanılır
+Türkçe karakterler için depoya gömülü Nunito kullanılır
 (bkz. routers/proforma.py::_register_fonts).
 """
 

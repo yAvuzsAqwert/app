@@ -11,6 +11,7 @@ import DailyReport from "@/pages/DailyReport";
 import MonthlyReport from "@/pages/MonthlyReport";
 import Users from "@/pages/Users";
 import AuditLog from "@/pages/AuditLog";
+import Trash from "@/pages/Trash";
 import Portal from "@/pages/Portal";
 import PortalLogin from "@/pages/PortalLogin";
 
@@ -93,6 +94,14 @@ export default function App() {
           element={
             <Protected>
               <Users />
+            </Protected>
+          }
+        />
+        <Route
+          path="/cop-kutusu"
+          element={
+            <Protected>
+              <Trash />
             </Protected>
           }
         />
