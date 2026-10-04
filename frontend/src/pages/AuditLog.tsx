@@ -38,6 +38,7 @@ const TIPLER: Record<string, string> = {
   revizyon: "Revizyon",
   silme: "Silme",
   not: "Not",
+  yetki: "Rol / Yetki",
 };
 
 const TUMU = "__all__";
@@ -187,7 +188,7 @@ export default function AuditLog() {
                     <TableCell className="text-sm">{a.kullanici || "—"}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={a.tip === "silme" ? "destructive" : "secondary"}
+                        variant={a.tip === "silme" ? "destructive" : a.tip === "yetki" ? "outline" : "secondary"}
                         className="text-[10px]"
                       >
                         {TIPLER[a.tip] ?? a.tip}

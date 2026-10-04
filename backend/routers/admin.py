@@ -16,6 +16,7 @@ from lib.permissions import (
     require,
 )
 from models.schemas import (
+    Activity,
     ExchangeRate,
     RoleCreate,
     RoleRename,
@@ -37,6 +38,22 @@ def _aware(doc: dict) -> dict:
         if isinstance(value, datetime) and value.tzinfo is None:
             doc[key] = value.replace(tzinfo=timezone.utc)
     return doc
+
+
+async def _log_yetki(user: dict, mesaj: str, eski: str | None = None, yeni: str | None = None) -> None:
+    """Rol / yetki değişikliklerini işlem günlüğüne yazar (proje bağımsız)."""
+    await db.activities.insert_one(
+        Activity(
+            proje_id="",
+            proje_kodu="",
+            tip="yetki",
+            mesaj=mesaj,
+            kullanici=user.get("ad_soyad", ""),
+            eski_durum=eski,
+            yeni_durum=yeni,
+            gun=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        ).model_dump()
+    )
 
 
 # ---------- yetki sözlüğü ----------
@@ -66,6 +83,12 @@ async def update_role(
         raise HTTPException(status_code=400, detail=f"Geçersiz yetki: {gecersiz[0]}")
     await db.roles.update_one({"kod": kod}, {"$set": {"yetkiler": payload.yetkiler}})
     fresh = await db.roles.find_one({"kod": kod})
+    await _log_yetki(
+        user,
+        f"Rol yetkileri güncellendi: {role.get('label', kod)} ({len(payload.yetkiler)} yetki)",
+        eski=", ".join(sorted(role.get("yetkiler", []))) or "—",
+        yeni=", ".join(sorted(payload.yetkiler)) or "—",
+    )
     return Role(**(fresh or {}))
 
 
@@ -86,6 +109,7 @@ async def create_role(payload: RoleCreate, user: dict = Depends(require("kullani
         raise HTTPException(status_code=400, detail=f"Geçersiz yetki: {gecersiz[0]}")
     doc = {"kod": kod, "label": label, "yetkiler": payload.yetkiler, "sistem": False}
     await db.roles.insert_one(dict(doc))
+    await _log_yetki(user, f"Yeni rol oluşturuldu: {label} ({kod})")
     return Role(**doc)
 
 
@@ -101,6 +125,9 @@ async def rename_role(
         raise HTTPException(status_code=400, detail="Rol adı zorunlu")
     await db.roles.update_one({"kod": kod}, {"$set": {"label": label}})
     fresh = await db.roles.find_one({"kod": kod})
+    await _log_yetki(
+        user, f"Rol adı değiştirildi ({kod})", eski=role.get("label", kod), yeni=label
+    )
     return Role(**(fresh or {}))
 
 
@@ -119,6 +146,7 @@ async def delete_role(kod: str, user: dict = Depends(require("kullanici:yonet"))
             status_code=409, detail=f"Bu rol {kullanan} kullanıcıda kullanılıyor, önce rolü değiştirin"
         )
     await db.roles.delete_one({"kod": kod})
+    await _log_yetki(user, f"Rol silindi: {role.get('label', kod)} ({kod})")
     return {"ok": True}
 
 
@@ -157,6 +185,9 @@ async def create_user(payload: UserCreate, user: dict = Depends(require("kullani
     doc["rol"] = payload.rol
     doc["sifre_hash"] = hash_password(payload.sifre)
     await db.users.insert_one(doc)
+    await _log_yetki(
+        user, f"Kullanıcı oluşturuldu: {yeni.ad_soyad} ({email})", yeni=payload.rol
+    )
     return UserAccount(
         id=yeni.id, email=email, ad_soyad=yeni.ad_soyad, rol=payload.rol, created_at=yeni.created_at
     )
@@ -177,6 +208,12 @@ async def set_user_role(
         if kalan == 0:
             raise HTTPException(status_code=409, detail="En az bir admin kalmalı")
     await db.users.update_one({"id": user_id}, {"$set": {"rol": payload.rol}})
+    await _log_yetki(
+        user,
+        f"Kullanıcı rolü değiştirildi: {target.get('ad_soyad', target.get('email', ''))}",
+        eski=target.get("rol", DEFAULT_ROLE),
+        yeni=payload.rol,
+    )
     fresh = _aware(await db.users.find_one({"id": user_id}) or {})
     return UserAccount(
         id=fresh["id"],
@@ -199,6 +236,7 @@ async def reset_user_password(
         {"id": user_id}, {"$set": {"sifre_hash": hash_password(payload.yeni_sifre)}}
     )
     await db.sessions.delete_many({"user_id": user_id})
+    await _log_yetki(user, f"Şifre sıfırlandı: {target.get('email', '')}")
     target = _aware(await db.users.find_one({"id": user_id}) or {})
     return UserAccount(
         id=target["id"],
@@ -222,6 +260,11 @@ async def delete_user(user_id: str, user: dict = Depends(require("kullanici:yone
             raise HTTPException(status_code=409, detail="En az bir admin kalmalı")
     await db.users.delete_one({"id": user_id})
     await db.sessions.delete_many({"user_id": user_id})
+    await _log_yetki(
+        user,
+        f"Kullanıcı silindi: {target.get('ad_soyad', '')} ({target.get('email', '')})",
+        eski=target.get("rol", DEFAULT_ROLE),
+    )
     return {"ok": True}
 
 

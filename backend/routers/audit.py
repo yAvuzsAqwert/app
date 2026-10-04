@@ -22,6 +22,7 @@ TIP_LABELS = {
     "revizyon": "Revizyon",
     "silme": "Silme",
     "not": "Not",
+    "yetki": "Rol / Yetki",
 }
 
 

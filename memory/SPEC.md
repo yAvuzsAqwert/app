@@ -248,3 +248,11 @@ Eklenenler:
   kullanıcısı olan rol silinemez (409). Tümü `kullanici:yonet` yetkisi gerektirir.
 - UI: `/kullanicilar` → Rol Yetkileri kartında "Yeni Rol", kalem (ad değiştir) ve çöp (sil)
   butonları + onay diyalogları; yeni rol seçili gelir, yetkiler işaretlenip Kaydet ile yazılır.
+
+## Rol / Yetki Değişiklik Günlüğü
+- `routers/admin.py::_log_yetki` tüm rol ve kullanıcı yetki işlemlerini `activities` koleksiyonuna
+  `tip="yetki"` (proje_id boş) olarak yazar: rol oluşturma, rol adı değişimi, rol yetki güncelleme
+  (eski → yeni yetki listesi), rol silme, kullanıcı oluşturma/silme, kullanıcı rolü değişimi
+  (eski rol → yeni rol), şifre sıfırlama.
+- İşlem Günlüğü ekranında "Rol / Yetki" tipi olarak filtrelenebilir; kullanıcı ve tarih
+  filtreleri de geçerlidir. Proje kolonu bu kayıtlarda "—" görünür.
