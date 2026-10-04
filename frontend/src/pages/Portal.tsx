@@ -70,7 +70,7 @@ export default function Portal() {
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
         <div className="flex items-center gap-2.5">
           {logoVar ? (
-            <img src={logoUrl} alt={programAdi} className="h-9 w-9 rounded-md object-contain" />
+            <img src={logoUrl} alt={programAdi} className="h-9 max-w-[160px] object-contain" />
           ) : (
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Sun className="h-5 w-5" />

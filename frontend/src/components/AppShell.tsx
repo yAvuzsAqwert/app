@@ -8,7 +8,7 @@ import { useBranding } from "@/lib/useBranding";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/panel", label: "Panel Anasayfa", icon: LayoutDashboard, testid: "nav-dashboard", perm: "" },
+  { to: "/panel", label: "Kontrol Paneli", icon: LayoutDashboard, testid: "nav-dashboard", perm: "" },
   { to: "/projeler", label: "Projeler", icon: FolderKanban, testid: "nav-projects", perm: "proje:goruntule" },
   { to: "/bayiler", label: "Bayi Kartları", icon: Building2, testid: "nav-dealers", perm: "bayi:goruntule" },
   { to: "/rapor", label: "Günlük Rapor", icon: CalendarRange, testid: "nav-report", perm: "rapor:goruntule" },
@@ -37,22 +37,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <img
               src={logoUrl}
               alt={programAdi}
-              className="h-9 w-9 rounded-md object-contain"
+              className="h-8 max-w-[190px] object-contain"
               data-testid="sidebar-logo"
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Sun className="h-5 w-5" />
-            </div>
+            <>
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <Sun className="h-5 w-5" />
+              </div>
+              <div className="leading-tight">
+                <p className="font-heading text-sm font-bold" data-testid="sidebar-program-name">
+                  {programAdi}
+                </p>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {altBaslik}
+                </p>
+              </div>
+            </>
           )}
-          <div className="leading-tight">
-            <p className="font-heading text-sm font-bold" data-testid="sidebar-program-name">
-              {programAdi}
-            </p>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              {altBaslik}
-            </p>
-          </div>
         </div>
 
         <nav className="flex-1 space-y-1 p-3">

@@ -406,7 +406,7 @@ function BrandingCard() {
               <img
                 src="/api/branding/logo"
                 alt="Logo"
-                className="h-12 w-12 rounded-md object-contain"
+                className="h-12 max-w-[180px] object-contain"
                 data-testid="branding-logo-preview"
               />
             ) : (

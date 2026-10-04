@@ -142,4 +142,4 @@ memory/test_credentials.md içinde.
   ekranı ve bayi portalı da kullanır); `PUT /api/branding`, `POST/DELETE /api/branding/logo`
   → `tanim:yonet` yetkisi. Arayüzde `useBranding()` ile yan menü, giriş ekranı ve portal
   başlığı beslenir.
-- Menü ve sayfa başlığı "Komuta Paneli" → **"Panel Anasayfa"** olarak değiştirildi.
+- Menü ve sayfa başlığı "Komuta Paneli" → **"Kontrol Paneli"** olarak değiştirildi.

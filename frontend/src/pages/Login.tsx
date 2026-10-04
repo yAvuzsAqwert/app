@@ -52,15 +52,20 @@ export default function Login() {
         <div className="absolute inset-0 flex flex-col justify-between p-12">
           <div className="flex items-center gap-2.5">
             {logoVar ? (
-              <img src={logoUrl} alt={programAdi} className="h-9 w-9 rounded-md object-contain" />
+              <img src={logoUrl} alt={programAdi} className="h-7 max-w-[180px] object-contain" />
             ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Sun className="h-5 w-5" />
-              </div>
+              <>
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                  <Sun className="h-5 w-5" />
+                </div>
+                <span
+                  className="font-heading text-sm font-bold tracking-wide"
+                  data-testid="login-program-name"
+                >
+                  {programAdi}
+                </span>
+              </>
             )}
-            <span className="font-heading text-sm font-bold tracking-wide" data-testid="login-program-name">
-              {programAdi}
-            </span>
           </div>
           <div className="max-w-xl">
             <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-primary">
