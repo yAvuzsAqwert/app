@@ -7,6 +7,7 @@ import { fmtDate, fmtMoney } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useBranding } from "@/lib/useBranding";
 import {
   Table,
   TableBody,
@@ -24,6 +25,7 @@ const ODEME: Record<string, string> = {
 
 export default function Portal() {
   const navigate = useNavigate();
+  const { logoVar, logoUrl, programAdi } = useBranding();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["portal", "ozet"],
@@ -67,9 +69,13 @@ export default function Portal() {
     <div className="min-h-svh bg-background" data-testid="portal-page">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sun className="h-5 w-5" />
-          </div>
+          {logoVar ? (
+            <img src={logoUrl} alt={programAdi} className="h-9 w-9 rounded-md object-contain" />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Sun className="h-5 w-5" />
+            </div>
+          )}
           <div>
             <p className="font-heading text-sm font-bold tracking-wide" data-testid="portal-firma">
               {data.firma}

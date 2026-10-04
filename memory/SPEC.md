@@ -133,3 +133,13 @@ memory/test_credentials.md içinde.
   Başka bayinin kaydı 404 döner (varlık sızdırmaz).
 - Kendi kendine kayıt (`POST /api/auth/register`) artık **izleyici** rolüyle açılır;
   yetkiyi admin `/kullanicilar` ekranından yükseltir.
+
+## Sürüm 6 — Marka ayarları
+- **Program adı & logo** (`backend/routers/branding.py`, Tanımlar → "Program Adı & Logo" kartı):
+  `settings` koleksiyonunda `key="branding"` dokümanı (program_adi, alt_baslik),
+  logo GridFS bucket `branding` içinde (PNG/JPG/WEBP/SVG, maks 2 MB).
+  Endpointler: `GET /api/branding` ve `GET /api/branding/logo` oturum istemez (giriş
+  ekranı ve bayi portalı da kullanır); `PUT /api/branding`, `POST/DELETE /api/branding/logo`
+  → `tanim:yonet` yetkisi. Arayüzde `useBranding()` ile yan menü, giriş ekranı ve portal
+  başlığı beslenir.
+- Menü ve sayfa başlığı "Komuta Paneli" → **"Panel Anasayfa"** olarak değiştirildi.

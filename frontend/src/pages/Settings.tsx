@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Check, Coins, Pencil, Plus, Trash2, X, SlidersHorizontal } from "lucide-react";
-import { apiGet, apiPut } from "@/lib/api";
-import type { CatalogItem, ExchangeRate } from "@/lib/types";
+import { ArrowDown, ArrowUp, Check, Coins, Image as ImageIcon, Pencil, Plus, Trash2, X, SlidersHorizontal } from "lucide-react";
+import { apiGet, apiPut, apiDelete } from "@/lib/api";
+import type { Branding, CatalogItem, ExchangeRate } from "@/lib/types";
 import { fmtDate } from "@/lib/constants";
 import {
   CATALOG_LABELS,
@@ -292,7 +292,160 @@ export default function Settings() {
       </div>
 
       <RatesCard />
+      <BrandingCard />
     </div>
+  );
+}
+
+/** Program adı, alt başlık ve logo. */
+function BrandingCard() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["branding"],
+    queryFn: () => apiGet<Branding>("/branding"),
+    retry: false,
+  });
+  const [ad, setAd] = useState<string | null>(null);
+  const [alt, setAlt] = useState<string | null>(null);
+  const [dosya, setDosya] = useState<File | null>(null);
+
+  const programAdi = ad ?? data?.program_adi ?? "";
+  const altBaslik = alt ?? data?.alt_baslik ?? "";
+
+  const yenile = () => {
+    qc.invalidateQueries({ queryKey: ["branding"] });
+    setAd(null);
+    setAlt(null);
+  };
+
+  const save = useMutation({
+    mutationFn: () =>
+      apiPut<Branding>("/branding", { program_adi: programAdi, alt_baslik: altBaslik }),
+    onSuccess: () => {
+      yenile();
+      toast.success("Program adı güncellendi");
+    },
+    onError: (e) => toast.error(catalogError(e, "Program adı kaydedilemedi")),
+  });
+
+  const upload = useMutation({
+    mutationFn: async () => {
+      if (!dosya) throw new Error("no file");
+      const body = new FormData();
+      body.append("file", dosya);
+      const res = await fetch("/api/branding/logo", { method: "POST", body });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error((err as { detail?: string } | null)?.detail ?? "Logo yüklenemedi");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setDosya(null);
+      qc.invalidateQueries({ queryKey: ["branding"] });
+      toast.success("Logo yüklendi");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Logo yüklenemedi"),
+  });
+
+  const removeLogo = useMutation({
+    mutationFn: () => apiDelete<Branding>("/branding/logo"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["branding"] });
+      toast.success("Logo kaldırıldı");
+    },
+    onError: (e) => toast.error(catalogError(e, "Logo kaldırılamadı")),
+  });
+
+  return (
+    <Card className="mt-6" data-testid="branding-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ImageIcon className="h-4 w-4 text-primary" /> Program Adı & Logo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm" htmlFor="brand-ad">
+              Program Adı
+            </label>
+            <Input
+              id="brand-ad"
+              value={programAdi}
+              maxLength={40}
+              onChange={(e) => setAd(e.target.value)}
+              data-testid="branding-name-input"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm" htmlFor="brand-alt">
+              Alt Başlık
+            </label>
+            <Input
+              id="brand-alt"
+              value={altBaslik}
+              maxLength={60}
+              onChange={(e) => setAlt(e.target.value)}
+              data-testid="branding-subtitle-input"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => save.mutate()}
+            disabled={save.isPending || !programAdi.trim()}
+            data-testid="branding-save-button"
+          >
+            {save.isPending ? "Kaydediliyor…" : "Adı Kaydet"}
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 rounded-md border border-border bg-secondary/20 p-3">
+            {data?.logo_var ? (
+              <img
+                src="/api/branding/logo"
+                alt="Logo"
+                className="h-12 w-12 rounded-md object-contain"
+                data-testid="branding-logo-preview"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-border text-[10px] text-muted-foreground">
+                logo
+              </div>
+            )}
+            <div className="min-w-0 text-xs text-muted-foreground">
+              Menü, giriş ekranı ve bayi portalında görünür. PNG/JPG/WEBP/SVG, en fazla 2 MB.
+            </div>
+          </div>
+          <Input
+            type="file"
+            accept=".png,.jpg,.jpeg,.webp,.svg"
+            onChange={(e) => setDosya(e.target.files?.[0] ?? null)}
+            data-testid="branding-logo-input"
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => upload.mutate()}
+              disabled={!dosya || upload.isPending}
+              data-testid="branding-logo-upload-button"
+            >
+              {upload.isPending ? "Yükleniyor…" : "Logoyu Yükle"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => removeLogo.mutate()}
+              disabled={!data?.logo_var || removeLogo.isPending}
+              data-testid="branding-logo-delete-button"
+            >
+              Logoyu Kaldır
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

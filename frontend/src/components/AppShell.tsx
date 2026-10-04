@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { endSession } from "@/lib/session";
 import { useAuth } from "@/lib/useAuth";
 import { usePermissions } from "@/lib/usePermissions";
+import { useBranding } from "@/lib/useBranding";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/panel", label: "Komuta Paneli", icon: LayoutDashboard, testid: "nav-dashboard", perm: "" },
+  { to: "/panel", label: "Panel Anasayfa", icon: LayoutDashboard, testid: "nav-dashboard", perm: "" },
   { to: "/projeler", label: "Projeler", icon: FolderKanban, testid: "nav-projects", perm: "proje:goruntule" },
   { to: "/bayiler", label: "Bayi Kartları", icon: Building2, testid: "nav-dealers", perm: "bayi:goruntule" },
   { to: "/rapor", label: "Günlük Rapor", icon: CalendarRange, testid: "nav-report", perm: "rapor:goruntule" },
@@ -19,6 +20,7 @@ const NAV = [
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { can, rolLabel } = usePermissions();
+  const { programAdi, altBaslik, logoVar, logoUrl } = useBranding();
   const navigate = useNavigate();
   const nav = NAV.filter((n) => !n.perm || can(n.perm));
 
@@ -31,13 +33,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-svh bg-background" data-testid="app-shell">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-sidebar lg:flex">
         <div className="flex items-center gap-2.5 border-b border-border px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sun className="h-5 w-5" />
-          </div>
+          {logoVar ? (
+            <img
+              src={logoUrl}
+              alt={programAdi}
+              className="h-9 w-9 rounded-md object-contain"
+              data-testid="sidebar-logo"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Sun className="h-5 w-5" />
+            </div>
+          )}
           <div className="leading-tight">
-            <p className="font-heading text-sm font-bold">PERGOLA TAKİP</p>
+            <p className="font-heading text-sm font-bold" data-testid="sidebar-program-name">
+              {programAdi}
+            </p>
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              Tente & Cam Sistemleri
+              {altBaslik}
             </p>
           </div>
         </div>
@@ -92,7 +105,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4 border-b border-border bg-sidebar/60 px-5 py-3 lg:hidden">
-          <span className="font-heading text-sm font-bold">PERGOLA TAKİP</span>
+          <span className="font-heading text-sm font-bold">{programAdi}</span>
           <div className="flex gap-1">
             {nav.map(({ to, icon: Icon, testid }) => (
               <NavLink key={to} to={to} data-testid={`${testid}-mobile`}>

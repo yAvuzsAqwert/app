@@ -357,3 +357,10 @@ export interface PortalDocument {
   aciklama: string;
   created_at: string;
 }
+
+// ---------- marka ayarları ----------
+export interface Branding {
+  program_adi: string;
+  alt_baslik: string;
+  logo_var: boolean;
+}

@@ -79,7 +79,7 @@ export default function Dashboard() {
   return (
     <div data-testid="dashboard-page">
       <PageHeader
-        title="Komuta Paneli"
+        title="Panel Anasayfa"
         subtitle="Tüm projelerin aşama, finans ve sevkiyat özeti"
       >
         {!!stats?.geciken_adet && (

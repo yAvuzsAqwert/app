@@ -523,3 +523,15 @@ class PortalDocument(BaseModel):
     boyut: int
     aciklama: str = ""
     created_at: datetime
+
+
+# ---------- marka ayarları ----------
+class Branding(BaseModel):
+    program_adi: str = "PERGOLA TAKİP"
+    alt_baslik: str = "Tente & Cam Sistemleri"
+    logo_var: bool = False
+
+
+class BrandingUpdate(BaseModel):
+    program_adi: str
+    alt_baslik: str = ""

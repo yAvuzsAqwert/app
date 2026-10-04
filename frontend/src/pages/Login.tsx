@@ -9,6 +9,7 @@ import type { User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useBranding } from "@/lib/useBranding";
 
 const HERO =
   "https://images.unsplash.com/photo-1784288195987-e10511825f4b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBwZXJnb2xhJTIwYXJjaGl0ZWN0dXJhbHxlbnwwfHx8fDE3OTEwOTAwMjJ8MA&ixlib=rb-4.1.0&q=85";
@@ -23,6 +24,7 @@ function errText(err: unknown) {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { programAdi, logoVar, logoUrl } = useBranding();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("admin@pergola.com");
   const [sifre, setSifre] = useState("pergola123");
@@ -49,10 +51,16 @@ export default function Login() {
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(11,15,23,0.95)_0%,rgba(15,23,42,0.82)_50%,rgba(11,15,23,0.94)_100%)]" />
         <div className="absolute inset-0 flex flex-col justify-between p-12">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Sun className="h-5 w-5" />
-            </div>
-            <span className="font-heading text-sm font-bold tracking-wide">PERGOLA TAKİP</span>
+            {logoVar ? (
+              <img src={logoUrl} alt={programAdi} className="h-9 w-9 rounded-md object-contain" />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <Sun className="h-5 w-5" />
+              </div>
+            )}
+            <span className="font-heading text-sm font-bold tracking-wide" data-testid="login-program-name">
+              {programAdi}
+            </span>
           </div>
           <div className="max-w-xl">
             <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-primary">

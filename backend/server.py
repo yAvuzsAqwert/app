@@ -21,6 +21,7 @@ from routers.dealers import router as dealers_router
 from routers.documents import router as documents_router
 from routers.labels import router as labels_router
 from routers.admin import router as admin_router
+from routers.branding import router as branding_router
 from routers.portal import router as portal_router
 from routers.proforma import router as proforma_router
 from routers.projects import router as projects_router
@@ -59,6 +60,7 @@ api_router.include_router(revisions_router)
 api_router.include_router(labels_router)
 api_router.include_router(portal_router)
 api_router.include_router(admin_router)
+api_router.include_router(branding_router)
 api_router.include_router(proforma_router)
 api_router.include_router(reports_router)
 
