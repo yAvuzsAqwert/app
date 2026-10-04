@@ -794,6 +794,27 @@ export default function ProjectDetail() {
                   />
                 </div>
 
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border p-3">
+                  <span className="text-xs text-muted-foreground">
+                    Kalem toplamı:{" "}
+                    <span className="font-mono text-primary">{fmtMoney(kalemToplam, cur)}</span>
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!can("muhasebe:duzenle") || !muh}
+                    onClick={() => patchMuh({ satis: Number(kalemToplam.toFixed(2)) })}
+                    data-testid="fill-sales-from-items-button"
+                  >
+                    <Tags className="mr-2 h-4 w-4" /> Satışı Kalem Toplamından Doldur
+                  </Button>
+                  {muh && Math.abs((muh.satis ?? 0) - kalemToplam) > 0.009 && (
+                    <span className="text-xs text-amber-400" data-testid="sales-mismatch-note">
+                      Satış tutarı kalem toplamından farklı — elle düzeltilmiş olabilir.
+                    </span>
+                  )}
+                </div>
+
                 <div className="sm:col-span-2 space-y-2 rounded-md border border-border bg-secondary/30 p-4">
                   {[
                     ["Transfer Dahil Toplam Satış", fmtMoney(toplamSatis, cur), "text-foreground", "calc-total-sales"],
@@ -826,8 +847,22 @@ export default function ProjectDetail() {
             </Card>
 
             <Card data-testid="installments-card">
-              <CardHeader>
-                <CardTitle className="text-base">Alınan Ödemeler (5 Taksit)</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">
+                  Alınan Ödemeler ({muh?.odemeler.length ?? 0} tahsilat)
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!can("muhasebe:duzenle") || !muh}
+                  onClick={() =>
+                    muh &&
+                    patchMuh({ odemeler: [...muh.odemeler, { tutar: 0, tarih: null, not: "" }] })
+                  }
+                  data-testid="add-installment-button"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Tahsilat Ekle
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {(muh?.odemeler ?? []).map((o, i) => (
@@ -836,9 +871,23 @@ export default function ProjectDetail() {
                     className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-[auto_1fr_1fr]"
                     data-testid={`installment-row-${i + 1}`}
                   >
-                    <Badge variant="secondary" className="h-fit font-mono">
-                      {i + 1}. Ödeme
-                    </Badge>
+                    <div className="flex h-fit items-center gap-1">
+                      <Badge variant="secondary" className="font-mono">
+                        {i + 1}. Ödeme
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={!can("muhasebe:duzenle")}
+                        onClick={() =>
+                          muh &&
+                          patchMuh({ odemeler: muh.odemeler.filter((_, xi) => xi !== i) })
+                        }
+                        data-testid={`remove-installment-${i + 1}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
                     <div className="space-y-1.5">
                       <Label htmlFor={`o-t-${i}`}>Tutar</Label>
                       <Input
@@ -877,6 +926,9 @@ export default function ProjectDetail() {
                   </div>
                 ))}
                 {!muh && <EmptyState mesaj="Muhasebe verisi yükleniyor." />}
+                {muh && muh.odemeler.length === 0 && (
+                  <EmptyState mesaj='Henüz tahsilat yok — "Tahsilat Ekle" ile satır açın.' />
+                )}
 
                 <div className="space-y-2 rounded-md border border-border bg-secondary/30 p-4">
                   <div className="flex items-center justify-between" data-testid="pay-total-sales">

@@ -79,7 +79,8 @@ class Muhasebe(BaseModel):
     transfer_ucreti: float = 0.0
     fatura_tipi: str = "ihrac_kayitli"  # ihrac_kayitli | kdvli | kdv_muaf
     odeme_durumu: str = "bekliyor"  # bekliyor | kismi | tamamlandi
-    odemeler: List[Odeme] = Field(default_factory=lambda: [Odeme() for _ in range(5)])
+    # Tahsilat satırı sayısı serbest — istenildiği kadar ödeme eklenebilir.
+    odemeler: List[Odeme] = Field(default_factory=list)
     # computed, filled by compute_muhasebe()
     transfer_dahil_toplam_satis: float = 0.0
     net_kar: float = 0.0

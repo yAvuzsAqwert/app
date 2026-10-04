@@ -276,3 +276,11 @@ Eklenenler:
   Kullanımda olan veya son iki aşamadan biri olan tanımlar atlanır, gerekçe listesi döner.
 - UI: her satırda onay kutusu + tümünü seç; seçim varken "Aktif Yap / Pasif Yap / Seçilenleri Sil /
   Seçimi Temizle" araç çubuğu çıkar.
+
+## Serbest tahsilat satırları + kalem bazlı satış
+- `Muhasebe.odemeler` artık sabit 5 taksit değil, serbest uzunlukta liste (0..n). compute_muhasebe,
+  proforma/dosya PDF'leri, günlük/aylık rapor ve bayi ekstresi satır sayısından bağımsız çalışır.
+- Proje detayı → Muhasebe & Tahsilat: "Tahsilat Ekle" ile yeni satır, her satırda çöp ikonuyla
+  satır silme; toplam/bakiye anlık güncellenir, "Tahsilatları Kaydet" ile yazılır.
+- "Satışı Kalem Toplamından Doldur" butonu satış tutarını kalem toplamıyla doldurur; alan elle
+  düzeltilebilir ve satış kalem toplamından farklıysa uyarı metni görünür.
