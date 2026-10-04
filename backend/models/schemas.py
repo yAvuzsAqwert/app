@@ -368,6 +368,17 @@ DOC_CATEGORIES = {
 }
 
 
+class CurrencyTotal(BaseModel):
+    """Para birimi bazında kırılım — farklı kurlar asla toplanmaz."""
+
+    para_birimi: str
+    proje_adet: int = 0
+    satis: float = 0.0
+    tahsilat: float = 0.0
+    bakiye: float = 0.0
+    net_kar: float = 0.0
+
+
 class DailyReport(BaseModel):
     tarih: str
     yeni_projeler: List[Project]
@@ -377,3 +388,55 @@ class DailyReport(BaseModel):
     gun_satis: float
     gun_tahsilat: float
     aktif_proje: int
+    gun_satis_dagilimi: List[CurrencyTotal] = Field(default_factory=list)
+    gun_tahsilat_dagilimi: List[CurrencyTotal] = Field(default_factory=list)
+    genel_dagilim: List[CurrencyTotal] = Field(default_factory=list)
+
+
+# ---------- bayi portalı ----------
+class DealerAccount(BaseModel):
+    id: str = Field(default_factory=_uid)
+    email: str
+    firma: str
+    ulke: str = ""
+    yetkili: str = ""
+    aktif: bool = True
+    created_at: datetime = Field(default_factory=now_utc)
+
+
+class DealerAccountCreate(BaseModel):
+    email: str
+    sifre: str
+    firma: str
+    ulke: str = ""
+    yetkili: str = ""
+
+
+class PortalProject(BaseModel):
+    proje_kodu: str
+    proje_adi: str
+    musteri: str
+    durum: str
+    durum_label: str
+    proje_tarihi: str
+    termin_tarihi: Optional[str] = None
+    sevk_tarihi: Optional[str] = None
+    para_birimi: str
+    toplam_satis: float
+    tahsilat: float
+    bakiye: float
+    odeme_durumu: str
+    arsiv: bool
+
+
+class PortalSummary(BaseModel):
+    firma: str
+    ulke: str
+    yetkili: str
+    para_birimi: str
+    proje_adet: int
+    aktif_adet: int
+    toplam_satis: float
+    toplam_tahsilat: float
+    acik_bakiye: float
+    projeler: List[PortalProject]

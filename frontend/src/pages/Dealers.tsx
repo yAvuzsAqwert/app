@@ -1,16 +1,33 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Building2, ChevronDown, Search, Globe2, FileSpreadsheet } from "lucide-react";
-import { apiGet } from "@/lib/api";
-import type { DealerCard } from "@/lib/types";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+  Building2,
+  ChevronDown,
+  Search,
+  Globe2,
+  FileSpreadsheet,
+  KeyRound,
+  Trash2,
+} from "lucide-react";
+import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
+import type { DealerCard, DealerAccount } from "@/lib/types";
 import { fmtDate, fmtMoney } from "@/lib/constants";
 import { PageHeader, EmptyState } from "@/components/AppShell";
 import { StageBadge } from "@/components/StageBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -22,8 +39,53 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function Dealers() {
+  const qc = useQueryClient();
   const [arama, setArama] = useState("");
   const [acik, setAcik] = useState<string | null>(null);
+  const [portalFor, setPortalFor] = useState<DealerCard | null>(null);
+  const [pEmail, setPEmail] = useState("");
+  const [pSifre, setPSifre] = useState("");
+  const [pYetkili, setPYetkili] = useState("");
+
+  const { data: accounts } = useQuery({
+    queryKey: ["dealer-accounts"],
+    queryFn: () => apiGet<DealerAccount[]>("/dealer-accounts"),
+    retry: false,
+  });
+
+  const createAccount = useMutation({
+    mutationFn: () =>
+      apiPost<DealerAccount>("/dealer-accounts", {
+        email: pEmail,
+        sifre: pSifre,
+        firma: portalFor?.firma ?? "",
+        ulke: portalFor?.ulke === "—" ? "" : (portalFor?.ulke ?? ""),
+        yetkili: pYetkili,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dealer-accounts"] });
+      toast.success("Portal hesabı oluşturuldu");
+      setPortalFor(null);
+      setPEmail("");
+      setPSifre("");
+      setPYetkili("");
+    },
+    onError: (err) => {
+      const body = err instanceof ApiError ? (err.body as { detail?: string } | null) : null;
+      toast.error(body?.detail ?? "Hesap oluşturulamadı");
+    },
+  });
+
+  const removeAccount = useMutation({
+    mutationFn: (id: string) => apiDelete(`/dealer-accounts/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dealer-accounts"] });
+      toast.success("Portal hesabı silindi");
+    },
+  });
+
+  const accountsFor = (d: DealerCard) =>
+    (accounts ?? []).filter((a) => a.firma === d.firma);
 
   const { data, isError } = useQuery({
     queryKey: ["dealers"],
@@ -141,6 +203,46 @@ export default function Dealers() {
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-secondary/20 p-3">
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    <span className="text-xs text-muted-foreground">Bayi portal erişimi:</span>
+                    {accountsFor(d).length ? (
+                      accountsFor(d).map((a) => (
+                        <Badge
+                          key={a.id}
+                          variant="secondary"
+                          className="gap-1.5 font-mono text-[10px]"
+                          data-testid={`portal-account-${a.email}`}
+                        >
+                          {a.email}
+                          <button
+                            type="button"
+                            onClick={() => removeAccount.mutate(a.id)}
+                            data-testid={`portal-account-delete-${a.email}`}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </button>
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">tanımlı değil</span>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => {
+                        setPortalFor(d);
+                        setPEmail("");
+                        setPSifre("");
+                        setPYetkili("");
+                      }}
+                      data-testid={`portal-account-add-${d.firma}`}
+                    >
+                      <KeyRound className="mr-2 h-4 w-4" /> Portal Hesabı Ver
+                    </Button>
+                  </div>
+
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     {[
                       ["Ciro", fmtMoney(d.ciro, d.para_birimi), "text-primary"],
@@ -250,6 +352,68 @@ export default function Dealers() {
           icon={<Building2 className="h-6 w-6" />}
         />
       )}
+
+      <Dialog open={!!portalFor} onOpenChange={(o: boolean) => !o && setPortalFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Portal Hesabı — {portalFor?.firma}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            data-testid="portal-account-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              createAccount.mutate();
+            }}
+          >
+            <p className="text-xs text-muted-foreground">
+              Bayi <span className="font-mono text-primary">/bayi-giris</span> adresinden girip
+              yalnızca kendi projelerini, tahsilatını ve bakiyesini görür. Hiçbir kaydı
+              değiştiremez.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="pa-email">E-posta</Label>
+              <Input
+                id="pa-email"
+                type="email"
+                required
+                value={pEmail}
+                onChange={(e) => setPEmail(e.target.value)}
+                data-testid="portal-account-email-input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pa-sifre">Şifre (en az 6 karakter)</Label>
+              <Input
+                id="pa-sifre"
+                required
+                minLength={6}
+                value={pSifre}
+                onChange={(e) => setPSifre(e.target.value)}
+                data-testid="portal-account-password-input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pa-yetkili">Yetkili Kişi</Label>
+              <Input
+                id="pa-yetkili"
+                value={pYetkili}
+                onChange={(e) => setPYetkili(e.target.value)}
+                data-testid="portal-account-contact-input"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={createAccount.isPending}
+                data-testid="portal-account-save-button"
+              >
+                {createAccount.isPending ? "Oluşturuluyor…" : "Hesabı Oluştur"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

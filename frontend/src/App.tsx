@@ -8,6 +8,8 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import Dealers from "@/pages/Dealers";
 import Settings from "@/pages/Settings";
 import DailyReport from "@/pages/DailyReport";
+import Portal from "@/pages/Portal";
+import PortalLogin from "@/pages/PortalLogin";
 
 // One <Route> per page in src/pages; BrowserRouter already wraps this in main.tsx.
 export default function App() {
@@ -16,6 +18,9 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/panel" replace />} />
         <Route path="/giris" element={<Login />} />
+        {/* Bayi portalı — ekip oturumundan ayrı, salt okunur */}
+        <Route path="/bayi-giris" element={<PortalLogin />} />
+        <Route path="/bayi" element={<Portal />} />
         <Route
           path="/panel"
           element={

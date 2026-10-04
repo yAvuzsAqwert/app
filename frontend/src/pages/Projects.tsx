@@ -7,8 +7,6 @@ import { apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
 import type { DeadlineAlert, Project, ProjectPayload } from "@/lib/types";
 import {
   ALERT_TONES,
-  MONTAJ_TIPLERI,
-  PARA_BIRIMLERI,
   SATIS_TIPLERI,
   STAGES,
   alertText,
@@ -16,6 +14,7 @@ import {
   fmtMoney,
 } from "@/lib/constants";
 import { PageHeader, EmptyState } from "@/components/AppShell";
+import CatalogSelect from "@/components/CatalogSelect";
 import { StageBadge } from "@/components/StageBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -193,12 +192,30 @@ export default function Projects() {
                   data-testid="new-project-proje_adi-input"
                 />
               </div>
-              {field("firma", "Firma")}
-              {field("musteri", "Müşteri")}
               {field("ulke", "Ülke")}
-              {field("tedarikci", "Tedarikçi")}
               {field("proje_tarihi", "Proje Tarihi", "date")}
               {field("termin_tarihi", "Termin Tarihi", "date")}
+              <CatalogSelect
+                tip="firma"
+                label="Firma / Bayi"
+                value={form.firma}
+                onChange={(v) => setForm({ ...form, firma: v })}
+                testid="new-project-firma-select"
+              />
+              <CatalogSelect
+                tip="musteri"
+                label="Müşteri"
+                value={form.musteri}
+                onChange={(v) => setForm({ ...form, musteri: v })}
+                testid="new-project-musteri-select"
+              />
+              <CatalogSelect
+                tip="tedarikci"
+                label="Tedarikçi"
+                value={form.tedarikci}
+                onChange={(v) => setForm({ ...form, tedarikci: v })}
+                testid="new-project-tedarikci-select"
+              />
 
               <div className="space-y-1.5">
                 <Label>Başlangıç Aşaması</Label>
@@ -238,43 +255,21 @@ export default function Projects() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Para Birimi</Label>
-                <Select
-                  value={form.para_birimi}
-                  onValueChange={(v: string) => setForm({ ...form, para_birimi: v })}
-                >
-                  <SelectTrigger data-testid="new-project-para_birimi-select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PARA_BIRIMLERI.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <CatalogSelect
+                tip="para_birimi"
+                label="Para Birimi"
+                value={form.para_birimi}
+                onChange={(v) => setForm({ ...form, para_birimi: v })}
+                testid="new-project-para_birimi-select"
+              />
 
-              <div className="space-y-1.5">
-                <Label>Montaj Tipi</Label>
-                <Select
-                  value={form.montaj_tipi}
-                  onValueChange={(v: string) => setForm({ ...form, montaj_tipi: v })}
-                >
-                  <SelectTrigger data-testid="new-project-montaj_tipi-select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MONTAJ_TIPLERI.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <CatalogSelect
+                tip="montaj_tipi"
+                label="Montaj Tipi"
+                value={form.montaj_tipi}
+                onChange={(v) => setForm({ ...form, montaj_tipi: v })}
+                testid="new-project-montaj_tipi-select"
+              />
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="new-notlar">Not</Label>

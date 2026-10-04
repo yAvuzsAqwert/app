@@ -13,9 +13,28 @@ from lib.auth import current_user
 from lib.catalog import stage_labels
 from lib.dates import today_iso
 from lib.db import db
-from models.schemas import STAGE_LABELS, Activity, DailyReport, Project
+from models.schemas import STAGE_LABELS, Activity, CurrencyTotal, DailyReport, Project
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def _by_currency(projects: list[Project]) -> list[CurrencyTotal]:
+    """Para birimi bazında kırılım — farklı kurlardaki tutarlar asla tek toplamda birleşmez."""
+    groups: dict[str, list[Project]] = {}
+    for p in projects:
+        groups.setdefault(p.para_birimi or "—", []).append(p)
+    rows = [
+        CurrencyTotal(
+            para_birimi=cur,
+            proje_adet=len(group),
+            satis=round(sum(p.muhasebe.transfer_dahil_toplam_satis for p in group), 2),
+            tahsilat=round(sum(p.muhasebe.toplam_tahsilat for p in group), 2),
+            bakiye=round(sum(p.muhasebe.kalan_bakiye for p in group), 2),
+            net_kar=round(sum(p.muhasebe.net_kar for p in group), 2),
+        )
+        for cur, group in groups.items()
+    ]
+    return sorted(rows, key=lambda r: r.satis, reverse=True)
 
 
 def _aware(doc: dict) -> dict:
@@ -45,6 +64,11 @@ async def _collect(tarih: str) -> DailyReport:
         gun_satis=round(sum(p.muhasebe.transfer_dahil_toplam_satis for p in yeni), 2),
         gun_tahsilat=round(sum(p.muhasebe.toplam_tahsilat for p in sevk), 2),
         aktif_proje=aktif,
+        gun_satis_dagilimi=_by_currency(yeni),
+        gun_tahsilat_dagilimi=_by_currency(sevk),
+        genel_dagilim=_by_currency(
+            [Project(**_aware(d)) for d in await db.projects.find({"arsiv": False}).to_list(1000)]
+        ),
     )
 
 
@@ -335,8 +359,8 @@ async def export_daily(
     wb.remove(wb.active)
 
     sheet(
-        f"Gun Ozeti",
-        ["Rapor Tarihi", "Yeni Proje", "Asama Degisimi", "Sevk Edilen", "Aktif Proje", "Gun Satis"],
+        "Gun Ozeti",
+        ["Rapor Tarihi", "Yeni Proje", "Asama Degisimi", "Sevk Edilen", "Aktif Proje"],
         [
             [
                 gun,
@@ -344,8 +368,30 @@ async def export_daily(
                 len(report.asama_degisimleri),
                 len(report.sevk_edilenler),
                 report.aktif_proje,
-                report.gun_satis,
             ]
+        ],
+    )
+
+    # Para birimi kırılımı — farklı kurlar tek toplamda birleştirilmez.
+    sheet(
+        "Para Birimi Dagilimi",
+        [
+            "Kapsam",
+            "Para Birimi",
+            "Proje Adedi",
+            "Toplam Satis",
+            "Tahsilat",
+            "Kalan Bakiye",
+            "Net Kar",
+        ],
+        [
+            [kapsam, r.para_birimi, r.proje_adet, r.satis, r.tahsilat, r.bakiye, r.net_kar]
+            for kapsam, rows in (
+                ("Gun Ici Acilan", report.gun_satis_dagilimi),
+                ("Gun Ici Sevk Edilen", report.gun_tahsilat_dagilimi),
+                ("Tum Aktif Projeler", report.genel_dagilim),
+            )
+            for r in rows
         ],
     )
 
@@ -370,16 +416,16 @@ async def export_daily(
             "Asama",
             "Tedarikci",
             "Para Birimi",
-            "Satis",
-            "Alis",
-            "Iskonto",
-            "Transfer",
-            "Toplam Satis",
-            "Net Kar",
+            "Satis (PB)",
+            "Alis (PB)",
+            "Iskonto (PB)",
+            "Transfer (PB)",
+            "Toplam Satis (PB)",
+            "Net Kar (PB)",
             "Kar %",
             "Odeme Durumu",
-            "Tahsilat",
-            "Kalan Bakiye",
+            "Tahsilat (PB)",
+            "Kalan Bakiye (PB)",
             "Sevk Tarihi",
             "Arsiv",
         ],
@@ -394,16 +440,16 @@ async def export_daily(
                 STAGE_LABELS.get(p.durum, p.durum),
                 p.tedarikci,
                 p.para_birimi,
-                p.muhasebe.satis,
-                p.muhasebe.alis,
-                p.muhasebe.iskonto_tutari,
-                p.muhasebe.transfer_ucreti,
-                p.muhasebe.transfer_dahil_toplam_satis,
-                p.muhasebe.net_kar,
+                f"{p.muhasebe.satis:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.alis:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.iskonto_tutari:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.transfer_ucreti:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.transfer_dahil_toplam_satis:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.net_kar:.2f} {p.para_birimi}".strip(),
                 p.muhasebe.kar_yuzdesi,
                 p.muhasebe.odeme_durumu,
-                p.muhasebe.toplam_tahsilat,
-                p.muhasebe.kalan_bakiye,
+                f"{p.muhasebe.toplam_tahsilat:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.kalan_bakiye:.2f} {p.para_birimi}".strip(),
                 p.sevk_tarihi or "",
                 "Evet" if p.arsiv else "Hayir",
             ]
@@ -413,6 +459,7 @@ async def export_daily(
 
     items = await db.project_items.find().to_list(2000)
     code_by_id = {p.id: p.proje_kodu for p in projects}
+    cur_by_id = {p.id: p.para_birimi for p in projects}
     sheet(
         "Proje Kalemleri",
         [
@@ -426,7 +473,9 @@ async def export_daily(
             "Aydinlatma",
             "Cam Kombinasyonu",
             "Tedarikci",
-            "Birim Fiyat",
+            "Para Birimi",
+            "Birim Fiyat (PB)",
+            "Satir Tutari (PB)",
         ],
         [
             [
@@ -440,7 +489,11 @@ async def export_daily(
                 i.get("aydinlatma", ""),
                 i.get("cam_kombinasyonu", ""),
                 i.get("tedarikci", ""),
-                i.get("birim_fiyat", 0),
+                cur_by_id.get(i.get("proje_id", ""), ""),
+                f"{float(i.get('birim_fiyat') or 0):.2f} "
+                f"{cur_by_id.get(i.get('proje_id', ''), '')}".strip(),
+                f"{float(i.get('birim_fiyat') or 0) * float(i.get('adet') or 0):.2f} "
+                f"{cur_by_id.get(i.get('proje_id', ''), '')}".strip(),
             ]
             for i in items
         ],

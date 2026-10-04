@@ -220,6 +220,15 @@ export interface DashboardStats {
   yaklasan_adet: number;
 }
 
+export interface CurrencyTotal {
+  para_birimi: string;
+  proje_adet: number;
+  satis: number;
+  tahsilat: number;
+  bakiye: number;
+  net_kar: number;
+}
+
 export interface DailyReport {
   tarih: string;
   yeni_projeler: Project[];
@@ -229,6 +238,9 @@ export interface DailyReport {
   gun_satis: number;
   gun_tahsilat: number;
   aktif_proje: number;
+  gun_satis_dagilimi: CurrencyTotal[];
+  gun_tahsilat_dagilimi: CurrencyTotal[];
+  genel_dagilim: CurrencyTotal[];
 }
 
 // Payloads
@@ -239,3 +251,44 @@ export type ProjectPayload = Omit<
 
 export type ItemPayload = Omit<ProjectItem, "id" | "proje_id" | "created_at">;
 export type CratePayload = Omit<ProjectCrate, "id" | "proje_id" | "created_at" | "hacim_cbm">;
+
+// ---------- bayi portalı ----------
+export interface DealerAccount {
+  id: string;
+  email: string;
+  firma: string;
+  ulke: string;
+  yetkili: string;
+  aktif: boolean;
+  created_at: string;
+}
+
+export interface PortalProject {
+  proje_kodu: string;
+  proje_adi: string;
+  musteri: string;
+  durum: string;
+  durum_label: string;
+  proje_tarihi: string;
+  termin_tarihi: string | null;
+  sevk_tarihi: string | null;
+  para_birimi: string;
+  toplam_satis: number;
+  tahsilat: number;
+  bakiye: number;
+  odeme_durumu: string;
+  arsiv: boolean;
+}
+
+export interface PortalSummary {
+  firma: string;
+  ulke: string;
+  yetkili: string;
+  para_birimi: string;
+  proje_adet: number;
+  aktif_adet: number;
+  toplam_satis: number;
+  toplam_tahsilat: number;
+  acik_bakiye: number;
+  projeler: PortalProject[];
+}

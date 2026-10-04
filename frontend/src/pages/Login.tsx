@@ -164,6 +164,14 @@ export default function Login() {
             {mode === "login" ? "Yeni hesap oluştur" : "Zaten hesabım var, giriş yap"}
           </button>
 
+          <a
+            href="/bayi-giris"
+            className="mt-3 block text-sm text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-primary hover:underline"
+            data-testid="to-portal-login-link"
+          >
+            Bayi misiniz? Bayi portalına giriş →
+          </a>
+
           <div className="mt-8 rounded-md border border-border bg-card p-4">
             <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
               Demo Hesap

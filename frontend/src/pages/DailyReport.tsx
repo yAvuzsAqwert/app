@@ -5,6 +5,7 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
+  Coins,
   Download,
   FileSpreadsheet,
   GitCommitHorizontal,
@@ -132,26 +133,110 @@ export default function DailyReport() {
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
         <Card data-testid="report-day-sales">
-          <CardContent className="pt-5">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
               Gün İçinde Açılan Proje Değeri
-            </p>
-            <p className="mt-1 font-mono text-xl font-semibold text-primary">
-              {fmtMoney(report?.gun_satis ?? 0)}
-            </p>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {report?.gun_satis_dagilimi.length ? (
+              report.gun_satis_dagilimi.map((c) => (
+                <div
+                  key={c.para_birimi}
+                  className="flex items-baseline justify-between gap-3"
+                  data-testid={`report-day-sales-${c.para_birimi}`}
+                >
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                    {c.para_birimi} · {c.proje_adet} proje
+                  </span>
+                  <span className="font-mono text-lg font-semibold text-primary">
+                    {fmtMoney(c.satis, c.para_birimi)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="font-mono text-lg font-semibold text-muted-foreground">—</p>
+            )}
           </CardContent>
         </Card>
         <Card data-testid="report-day-collection">
-          <CardContent className="pt-5">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-normal uppercase tracking-wide text-muted-foreground">
               Sevk Edilen Projelerin Tahsilatı
-            </p>
-            <p className="mt-1 font-mono text-xl font-semibold text-emerald-400">
-              {fmtMoney(report?.gun_tahsilat ?? 0)}
-            </p>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {report?.gun_tahsilat_dagilimi.length ? (
+              report.gun_tahsilat_dagilimi.map((c) => (
+                <div
+                  key={c.para_birimi}
+                  className="flex items-baseline justify-between gap-3"
+                  data-testid={`report-day-collection-${c.para_birimi}`}
+                >
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                    {c.para_birimi} · {c.proje_adet} proje
+                  </span>
+                  <span className="font-mono text-lg font-semibold text-emerald-400">
+                    {fmtMoney(c.tahsilat, c.para_birimi)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="font-mono text-lg font-semibold text-muted-foreground">—</p>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Para birimi kırılımı — farklı kurlar asla tek toplamda birleştirilmez */}
+      <Card className="mb-6" data-testid="report-currency-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Coins className="h-4 w-4 text-primary" /> Para Birimine Göre Kırılım (tüm aktif
+            projeler)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {report?.genel_dagilim.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Para Birimi</TableHead>
+                  <TableHead className="text-right">Proje</TableHead>
+                  <TableHead className="text-right">Toplam Satış</TableHead>
+                  <TableHead className="text-right">Tahsilat</TableHead>
+                  <TableHead className="text-right">Kalan Bakiye</TableHead>
+                  <TableHead className="text-right">Net Kar</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.genel_dagilim.map((c) => (
+                  <TableRow key={c.para_birimi} data-testid={`report-currency-${c.para_birimi}`}>
+                    <TableCell className="font-mono text-xs text-primary">
+                      {c.para_birimi}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">{c.proje_adet}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {fmtMoney(c.satis, c.para_birimi)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-emerald-400">
+                      {fmtMoney(c.tahsilat, c.para_birimi)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-amber-400">
+                      {fmtMoney(c.bakiye, c.para_birimi)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-sky-400">
+                      {fmtMoney(c.net_kar, c.para_birimi)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <EmptyState mesaj="Aktif proje bulunmuyor." />
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
         <Card data-testid="report-activity-card">

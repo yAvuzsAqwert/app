@@ -80,6 +80,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useOptions } from "@/lib/useCatalogs";
+import CatalogSelect from "@/components/CatalogSelect";
 
 function errText(err: unknown) {
   if (err instanceof ApiError) {
@@ -137,7 +138,6 @@ export default function ProjectDetail() {
   const detail = isError ? null : data;
   const project = detail?.project;
   const stageList = useOptions("asama");
-  const urunler = useOptions("urun");
 
   const [info, setInfo] = useState<ProjectPayload | null>(null);
   const [muh, setMuh] = useState<Muhasebe | null>(null);
@@ -493,46 +493,24 @@ export default function ProjectDetail() {
                       addItem.mutate();
                     }}
                   >
-                    <div className="space-y-1.5 sm:col-span-3">
-                      <Label>Ürün *</Label>
-                      <Select
-                        value={item.urun}
-                        onValueChange={(v: string) => setItem({ ...item, urun: v })}
-                      >
-                        <SelectTrigger data-testid="item-urun-select">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(urunler.length
-                            ? urunler.map((u) => u.label)
-                            : URUN_TIPLERI
-                          ).map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <CatalogSelect
+                      tip="urun"
+                      label="Ürün *"
+                      value={item.urun}
+                      onChange={(v) => setItem({ ...item, urun: v })}
+                      testid="item-urun-select"
+                      className="sm:col-span-3"
+                    />
                     {(
                       [
                         ["adet", "Adet", "number"],
                         ["genislik_mm", "Genişlik (mm)", "number"],
                         ["acilim_mm", "Açılım (mm)", "number"],
-                        ["yapi_rengi", "Yapı Rengi (RAL)", "text"],
-                        ["panel_rengi", "Panel Rengi", "text"],
-                        ["aydinlatma", "Aydınlatma", "text"],
                         ["aydinlatma_rengi", "Aydınlatma Rengi", "text"],
                         ["led_strip_mtul", "LED Strip (mtül)", "number"],
                         ["led_spot_adet", "LED Spot (adet)", "number"],
-                        ["zip_yapi_rengi", "Zip Yapı Rengi", "text"],
-                        ["zip_kumasi", "Zip Kumaşı", "text"],
-                        ["pergola_kumasi", "Pergola Kumaşı", "text"],
                         ["kumas_profil_rengi", "Kumaş Profil Rengi", "text"],
                         ["cam_olcusu", "Cam Ölçüsü", "text"],
-                        ["cam_rengi", "Cam Rengi", "text"],
-                        ["cam_kombinasyonu", "Cam Kombinasyonu", "text"],
-                        ["tedarikci", "Tedarikçi", "text"],
                         ["birim_fiyat", "Birim Fiyat", "number"],
                       ] as [keyof ItemPayload, string, string][]
                     ).map(([key, label, type]) => (
@@ -551,6 +529,28 @@ export default function ProjectDetail() {
                           data-testid={`item-${String(key)}-input`}
                         />
                       </div>
+                    ))}
+                    {(
+                      [
+                        ["yapi_rengi", "yapi_rengi", "Yapı Rengi (RAL)"],
+                        ["panel_rengi", "panel_rengi", "Panel Rengi"],
+                        ["aydinlatma", "aydinlatma", "Aydınlatma"],
+                        ["zip_yapi_rengi", "yapi_rengi", "Zip Yapı Rengi"],
+                        ["zip_kumasi", "kumas", "Zip Kumaşı"],
+                        ["pergola_kumasi", "kumas", "Pergola Kumaşı"],
+                        ["cam_rengi", "cam_rengi", "Cam Rengi"],
+                        ["cam_kombinasyonu", "cam_kombinasyonu", "Cam Kombinasyonu"],
+                        ["tedarikci", "tedarikci", "Tedarikçi"],
+                      ] as [keyof ItemPayload, string, string][]
+                    ).map(([key, tip, label]) => (
+                      <CatalogSelect
+                        key={key}
+                        tip={tip}
+                        label={label}
+                        value={String(item[key] ?? "")}
+                        onChange={(v) => setItem({ ...item, [key]: v })}
+                        testid={`item-${String(key)}-select`}
+                      />
                     ))}
                     <div className="space-y-1.5 sm:col-span-3">
                       <Label htmlFor="i-notlar">Not</Label>
@@ -828,7 +828,6 @@ export default function ProjectDetail() {
                       {(
                         [
                           ["sandik_no", "Sandık No", "text"],
-                          ["tedarikci", "Tedarikçi", "text"],
                           ["taban_cm", "Taban / En (cm)", "number"],
                           ["uzunluk_cm", "Uzunluk (cm)", "number"],
                           ["yukseklik_cm", "Yükseklik (cm)", "number"],
@@ -852,6 +851,13 @@ export default function ProjectDetail() {
                           />
                         </div>
                       ))}
+                      <CatalogSelect
+                        tip="tedarikci"
+                        label="Tedarikçi"
+                        value={crate.tedarikci}
+                        onChange={(v) => setCrate({ ...crate, tedarikci: v })}
+                        testid="crate-tedarikci-select"
+                      />
                       <div className="space-y-1.5 sm:col-span-2">
                         <Label htmlFor="c-icerik">İçerik</Label>
                         <Textarea

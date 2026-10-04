@@ -85,3 +85,25 @@ memory/test_credentials.md içinde.
   (png/jpg/jpeg/webp/gif, en çok 20 adet) proforma PDF'inin sonuna `PageBreak` ile eklenen
   "TEKNİK ÇİZİMLER" sayfasında 2'li ızgarada, açıklama alt yazısıyla basılır
   (`routers/proforma.py::_drawing_flowables`). Resim olmayan çizim evrakları atlanır.
+
+## Sürüm 4 — Hızlı tanım ekleme, Bayi Portalı, Para birimi kırılımı
+- **CatalogSelect** (`frontend/src/components/CatalogSelect.tsx`): tanım listesinden seçim +
+  "Yeni ekle" satır içi girişi. Kalem (sipariş) formundaki ürün/yapı rengi/panel rengi/
+  aydınlatma/zip yapı rengi/zip-pergola kumaşı/cam rengi/cam kombinasyonu/tedarikçi,
+  sandık formundaki tedarikçi ve yeni proje formundaki firma/müşteri/tedarikçi/para birimi/
+  montaj tipi alanları artık bu bileşeni kullanır — ekrandan ayrılmadan tanım oluşturulur
+  (`POST /api/catalogs/{tip}`), oluşan değer otomatik seçilir.
+- **Bayi Portalı** (`routers/portal.py`, `pages/PortalLogin.tsx`, `pages/Portal.tsx`):
+  salt okunur, ayrı cookie (`bayi_session`) ve ayrı koleksiyonlar (`dealer_accounts`,
+  `dealer_sessions`). Rotalar: `/bayi-giris`, `/bayi`.
+  Endpointler: `POST /api/portal/login|logout`, `GET /api/portal/me`, `GET /api/portal/ozet`
+  (bayinin firma+ülke eşleşen projeleri, tutar/tahsilat/bakiye), ekip tarafında
+  `GET/POST /api/dealer-accounts`, `DELETE /api/dealer-accounts/{id}` (Bayi Kartları sayfasında
+  "Portal Hesabı Ver"). Portal cookie'si ekip endpointlerine erişemez (401).
+- **Para birimi kırılımı**: `GET /api/reports/daily` artık `gun_satis_dagilimi`,
+  `gun_tahsilat_dagilimi`, `genel_dagilim` (CurrencyTotal: para_birimi, proje_adet, satis,
+  tahsilat, bakiye, net_kar) döner; farklı kurlar asla tek toplamda birleştirilmez.
+  Günlük Rapor sayfasında para birimli kartlar + "Para Birimine Göre Kırılım" tablosu;
+  Excel raporunda yeni "Para Birimi Dagilimi" sayfası, Projeler sayfasında tutar kolonları
+  para birimi etiketli (örn. "43400.00 EUR"), Proje Kalemleri sayfasında para birimi +
+  birim fiyat/satır tutarı para birimli.
