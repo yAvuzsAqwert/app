@@ -32,6 +32,7 @@ PERMISSIONS: dict[str, str] = {
     "portal:yonet": "Bayi portal hesaplarını yönet",
     "tanim:yonet": "Tanım listelerini yönet",
     "kur:yonet": "Döviz kurlarını güncelle",
+    "islem_log:goruntule": "İşlem günlüğünü görüntüle",
     "kullanici:yonet": "Kullanıcı ve yetkileri yönet",
 }
 

@@ -545,3 +545,14 @@ class PasswordChange(BaseModel):
 
 class PasswordReset(BaseModel):
     yeni_sifre: str = Field(min_length=8)
+
+
+# ---------- toplu işlem ----------
+class BulkIds(BaseModel):
+    ids: List[str]
+    arsiv: bool = True
+
+
+class BulkResult(BaseModel):
+    etkilenen: int
+    bulunamayan: int = 0

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FolderKanban, CalendarRange, CalendarDays, LogOut, Sun, Search, Building2, SlidersHorizontal, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, FolderKanban, CalendarRange, CalendarDays, LogOut, Sun, Search, Building2, SlidersHorizontal, ShieldCheck, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { endSession } from "@/lib/session";
 import { useAuth } from "@/lib/useAuth";
@@ -15,6 +15,7 @@ const NAV = [
   { to: "/rapor", label: "Günlük Rapor", icon: CalendarRange, testid: "nav-report", perm: "rapor:goruntule" },
   { to: "/aylik-rapor", label: "Aylık Rapor", icon: CalendarDays, testid: "nav-monthly", perm: "rapor:goruntule" },
   { to: "/tanimlar", label: "Tanımlar", icon: SlidersHorizontal, testid: "nav-settings", perm: "tanim:yonet" },
+  { to: "/islem-gunlugu", label: "İşlem Günlüğü", icon: History, testid: "nav-audit", perm: "islem_log:goruntule" },
   { to: "/kullanicilar", label: "Kullanıcılar & Yetkiler", icon: ShieldCheck, testid: "nav-users", perm: "kullanici:yonet" },
 ];
 

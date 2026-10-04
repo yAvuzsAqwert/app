@@ -212,3 +212,14 @@ Eklenenler:
   üstünde "Projeyi Sil" butonu. Her ikisi de onay diyaloğu açar
   (`delete-project-dialog`, "Vazgeç" / "Kalıcı Olarak Sil") ve arşivleme alternatifini hatırlatır.
   Yetkisi olmayan kullanıcıda butonlar devre dışıdır; detaydan silince `/projeler`e dönülür.
+
+## Sürüm 6.7 — İşlem günlüğü + toplu işlem
+- **İşlem günlüğü** (`routers/audit.py`, sayfa `/islem-gunlugu`): `activities` koleksiyonundan
+  tarih/saat, kullanıcı, işlem tipi, proje ve açıklama ile liste.
+  `GET /api/activities?kullanici=&tip=&baslangic=&bitis=&limit=` ve
+  `GET /api/activities/kullanicilar`; yeni yetki **`islem_log:goruntule`** (varsayılan: yalnız admin).
+  Silme kayıtları kırmızı etiketle görünür; aşama değişimleri eski → yeni durumu gösterir.
+- **Toplu işlem** (Projeler listesinde satır seçim kutuları + "x proje seçildi" çubuğu):
+  `POST /api/projects/bulk/archive` (`{ids, arsiv}`) ve `POST /api/projects/bulk/delete`
+  (`{ids}`) — yetki `proje:sil`, boş liste 400, yanıt `{etkilenen, bulunamayan}`.
+  Toplu silme onay diyaloğu ister ve her proje için günlüğe "Toplu silme" kaydı yazar.

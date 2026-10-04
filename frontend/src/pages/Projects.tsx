@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Search, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
-import type { DeadlineAlert, Project, ProjectPayload } from "@/lib/types";
+import type { BulkResult, DeadlineAlert, Project, ProjectPayload } from "@/lib/types";
 import {
   ALERT_TONES,
   SATIS_TIPLERI,
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -88,6 +89,8 @@ export default function Projects() {
   const [arama, setArama] = useState("");
   const [open, setOpen] = useState(false);
   const [silFor, setSilFor] = useState<Project | null>(null);
+  const [secili, setSecili] = useState<string[]>([]);
+  const [topluSilOnay, setTopluSilOnay] = useState(false);
   const [form, setForm] = useState<ProjectPayload>(emptyProject);
 
   const query = useMemo(() => {
@@ -149,6 +152,33 @@ export default function Projects() {
       qc.invalidateQueries({ queryKey: ["alerts"] });
       toast.success(`${silFor?.proje_kodu} kalıcı olarak silindi`);
       setSilFor(null);
+    },
+    onError: (err) => toast.error(errText(err)),
+  });
+
+  const bulkArchive = useMutation({
+    mutationFn: (arsiv: boolean) =>
+      apiPost<BulkResult>("/projects/bulk/archive", { ids: secili, arsiv }),
+    onSuccess: (res, arsiv) => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(
+        `${res.etkilenen} proje ${arsiv ? "arşivlendi" : "arşivden çıkarıldı"}`,
+      );
+      setSecili([]);
+    },
+    onError: (err) => toast.error(errText(err)),
+  });
+
+  const bulkDelete = useMutation({
+    mutationFn: () => apiPost<BulkResult>("/projects/bulk/delete", { ids: secili }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["alerts"] });
+      toast.success(`${res.etkilenen} proje kalıcı olarak silindi`);
+      setSecili([]);
+      setTopluSilOnay(false);
     },
     onError: (err) => toast.error(errText(err)),
   });
@@ -354,10 +384,65 @@ export default function Projects() {
 
       <Card>
         <CardContent className="pt-5">
+          {secili.length > 0 && (
+            <div
+              className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-primary/40 bg-primary/10 p-3"
+              data-testid="bulk-actions-bar"
+            >
+              <span className="text-sm">
+                <b data-testid="bulk-selected-count">{secili.length}</b> proje seçildi
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                disabled={bulkArchive.isPending || !can("proje:sil")}
+                onClick={() => bulkArchive.mutate(true)}
+                data-testid="bulk-archive-button"
+              >
+                <Archive className="mr-2 h-4 w-4" /> Toplu Arşivle
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={bulkArchive.isPending || !can("proje:sil")}
+                onClick={() => bulkArchive.mutate(false)}
+                data-testid="bulk-unarchive-button"
+              >
+                <ArchiveRestore className="mr-2 h-4 w-4" /> Arşivden Çıkar
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={bulkDelete.isPending || !can("proje:sil")}
+                onClick={() => setTopluSilOnay(true)}
+                data-testid="bulk-delete-button"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Toplu Sil
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSecili([])}
+                data-testid="bulk-clear-button"
+              >
+                Seçimi Temizle
+              </Button>
+            </div>
+          )}
           {projects.length ? (
             <Table data-testid="projects-table">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={projects.length > 0 && secili.length === projects.length}
+                      onCheckedChange={(v: boolean) =>
+                        setSecili(v ? projects.map((p) => p.id) : [])
+                      }
+                      data-testid="select-all-projects"
+                    />
+                  </TableHead>
                   <TableHead>Proje Kodu</TableHead>
                   <TableHead>Proje / Müşteri</TableHead>
                   <TableHead>Ülke</TableHead>
@@ -376,6 +461,15 @@ export default function Projects() {
                     className="transition-colors duration-100 hover:bg-secondary/50"
                     data-testid={`project-row-${p.proje_kodu}`}
                   >
+                    <TableCell className="w-10">
+                      <Checkbox
+                        checked={secili.includes(p.id)}
+                        onCheckedChange={(v: boolean) =>
+                          setSecili(v ? [...secili, p.id] : secili.filter((x) => x !== p.id))
+                        }
+                        data-testid={`select-project-${p.proje_kodu}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Link
                         to={`/projeler/${p.id}`}
@@ -454,6 +548,38 @@ export default function Projects() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={topluSilOnay} onOpenChange={setTopluSilOnay}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{secili.length} Projeyi Sil</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4" data-testid="bulk-delete-dialog">
+            <p className="text-sm text-muted-foreground">
+              Seçili <b className="text-foreground">{secili.length}</b> proje; ürün kalemleri,
+              sandık kayıtları ve işlem geçmişiyle birlikte kalıcı olarak silinecek. Geri alınamaz —
+              saklamak için <b>Toplu Arşivle</b>'yi kullanın.
+            </p>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setTopluSilOnay(false)}
+                data-testid="bulk-delete-cancel-button"
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={bulkDelete.isPending}
+                onClick={() => bulkDelete.mutate()}
+                data-testid="bulk-delete-confirm-button"
+              >
+                {bulkDelete.isPending ? "Siliniyor…" : "Kalıcı Olarak Sil"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!silFor} onOpenChange={(o: boolean) => !o && setSilFor(null)}>
         <DialogContent className="sm:max-w-md">

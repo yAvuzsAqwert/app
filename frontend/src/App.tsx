@@ -10,6 +10,7 @@ import Settings from "@/pages/Settings";
 import DailyReport from "@/pages/DailyReport";
 import MonthlyReport from "@/pages/MonthlyReport";
 import Users from "@/pages/Users";
+import AuditLog from "@/pages/AuditLog";
 import Portal from "@/pages/Portal";
 import PortalLogin from "@/pages/PortalLogin";
 
@@ -76,6 +77,14 @@ export default function App() {
           element={
             <Protected>
               <MonthlyReport />
+            </Protected>
+          }
+        />
+        <Route
+          path="/islem-gunlugu"
+          element={
+            <Protected>
+              <AuditLog />
             </Protected>
           }
         />

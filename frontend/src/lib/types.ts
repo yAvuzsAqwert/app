@@ -364,3 +364,9 @@ export interface Branding {
   alt_baslik: string;
   logo_var: boolean;
 }
+
+// ---------- toplu işlem ----------
+export interface BulkResult {
+  etkilenen: number;
+  bulunamayan: number;
+}
