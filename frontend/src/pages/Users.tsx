@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ShieldCheck, UserPlus, Trash2, Users as UsersIcon, Save, KeyRound } from "lucide-react";
+import { ShieldCheck, UserPlus, Trash2, Users as UsersIcon, Save, KeyRound, Plus, Pencil } from "lucide-react";
 import { apiGet, apiPost, apiPut, apiDelete, ApiError } from "@/lib/api";
 import type { Role, UserAccount } from "@/lib/types";
 import { fmtDate } from "@/lib/constants";
@@ -35,6 +35,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const HAZIR_ROLLER = ["admin", "satis", "uretim", "muhasebe", "izleyici"];
+
 function errText(err: unknown, fallback = "İşlem başarısız oldu") {
   if (err instanceof ApiError) {
     const body = err.body as { detail?: unknown } | null;
@@ -49,6 +51,11 @@ export default function Users() {
   const [taslak, setTaslak] = useState<string[] | null>(null);
   const [yeni, setYeni] = useState({ email: "", sifre: "", ad_soyad: "", rol: "satis" });
   const [resetFor, setResetFor] = useState<UserAccount | null>(null);
+  const [rolDialog, setRolDialog] = useState(false);
+  const [yeniRol, setYeniRol] = useState({ kod: "", label: "" });
+  const [adDialog, setAdDialog] = useState(false);
+  const [yeniAd, setYeniAd] = useState("");
+  const [rolSilOnay, setRolSilOnay] = useState(false);
   const [yeniSifre, setYeniSifre] = useState("");
 
   const { data: perms } = useQuery({
@@ -80,6 +87,47 @@ export default function Users() {
       toast.success("Rol yetkileri kaydedildi");
     },
     onError: (e) => toast.error(errText(e, "Yetkiler kaydedilemedi")),
+  });
+
+  const createRole = useMutation({
+    mutationFn: () =>
+      apiPost<Role>("/roles", {
+        kod: yeniRol.kod.trim().toLowerCase(),
+        label: yeniRol.label.trim(),
+        yetkiler: [],
+      }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      setSecili(r.kod);
+      setTaslak(null);
+      setRolDialog(false);
+      setYeniRol({ kod: "", label: "" });
+      toast.success(`Rol oluşturuldu: ${r.label} — şimdi yetkileri seçip kaydedin`);
+    },
+    onError: (e) => toast.error(errText(e, "Rol oluşturulamadı")),
+  });
+
+  const renameRole = useMutation({
+    mutationFn: () => apiPut<Role>(`/roles/${secili}/ad`, { label: yeniAd.trim() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      qc.invalidateQueries({ queryKey: ["my-permissions"] });
+      setAdDialog(false);
+      toast.success("Rol adı güncellendi");
+    },
+    onError: (e) => toast.error(errText(e, "Rol adı güncellenemedi")),
+  });
+
+  const deleteRole = useMutation({
+    mutationFn: () => apiDelete(`/roles/${secili}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      setRolSilOnay(false);
+      setSecili("satis");
+      setTaslak(null);
+      toast.success("Rol silindi");
+    },
+    onError: (e) => toast.error(errText(e, "Rol silinemedi")),
   });
 
   const createUser = useMutation({
@@ -249,12 +297,48 @@ export default function Users() {
                   <Save className="mr-2 h-4 w-4" />
                   {saveRole.isPending ? "Kaydediliyor…" : "Kaydet"}
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRolDialog(true)}
+                  data-testid="role-create-button"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Yeni Rol
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={secili === "admin"}
+                  onClick={() => {
+                    setYeniAd(rol?.label ?? "");
+                    setAdDialog(true);
+                  }}
+                  title="Rol adını değiştir"
+                  data-testid="role-rename-button"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={secili === "admin" || HAZIR_ROLLER.includes(secili)}
+                  onClick={() => setRolSilOnay(true)}
+                  title="Rolü sil"
+                  data-testid="role-delete-button"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
               {secili === "admin" && (
                 <p className="mb-3 text-xs text-amber-400" data-testid="admin-role-note">
                   Admin rolü daima tüm yetkilere sahiptir ve değiştirilemez.
+                </p>
+              )}
+              {secili !== "admin" && HAZIR_ROLLER.includes(secili) && (
+                <p className="mb-3 text-xs text-muted-foreground" data-testid="preset-role-note">
+                  Hazır rol — yetkileri ve adı değiştirilebilir, silinemez.
                 </p>
               )}
               <div className="grid gap-2 sm:grid-cols-2">
@@ -394,6 +478,120 @@ export default function Users() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={rolDialog} onOpenChange={setRolDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="role-create-dialog">
+          <DialogHeader>
+            <DialogTitle>Yeni Rol Oluştur</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            data-testid="role-create-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              createRole.mutate();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="nr-label">Rol Adı</Label>
+              <Input
+                id="nr-label"
+                required
+                placeholder="Örn. Gümrük Sorumlusu"
+                value={yeniRol.label}
+                onChange={(e) => setYeniRol({ ...yeniRol, label: e.target.value })}
+                data-testid="role-create-label-input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="nr-kod">Rol Kodu (harf, rakam, - , _)</Label>
+              <Input
+                id="nr-kod"
+                required
+                placeholder="gumruk"
+                value={yeniRol.kod}
+                onChange={(e) => setYeniRol({ ...yeniRol, kod: e.target.value })}
+                data-testid="role-create-code-input"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Rol oluşturulduktan sonra yetkiler listesinden seçim yapıp Kaydet'e basın.
+            </p>
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={createRole.isPending}
+                data-testid="role-create-submit-button"
+              >
+                {createRole.isPending ? "Oluşturuluyor…" : "Rolü Oluştur"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={adDialog} onOpenChange={setAdDialog}>
+        <DialogContent className="sm:max-w-md" data-testid="role-rename-dialog">
+          <DialogHeader>
+            <DialogTitle>Rol Adını Değiştir</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            data-testid="role-rename-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              renameRole.mutate();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="rr-label">Rol Adı</Label>
+              <Input
+                id="rr-label"
+                required
+                value={yeniAd}
+                onChange={(e) => setYeniAd(e.target.value)}
+                data-testid="role-rename-input"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={renameRole.isPending}
+                data-testid="role-rename-submit-button"
+              >
+                Kaydet
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rolSilOnay} onOpenChange={setRolSilOnay}>
+        <DialogContent className="sm:max-w-md" data-testid="role-delete-dialog">
+          <DialogHeader>
+            <DialogTitle>Rolü sil?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {rol?.label} rolü silinecek. Bu role atanmış kullanıcı varsa işlem reddedilir.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRolSilOnay(false)}
+              data-testid="role-delete-cancel-button"
+            >
+              Vazgeç
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteRole.isPending}
+              onClick={() => deleteRole.mutate()}
+              data-testid="role-delete-confirm-button"
+            >
+              Rolü Sil
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -11,11 +11,14 @@ from lib.permissions import (
     ALL_PERMISSIONS,
     DEFAULT_ROLE,
     PERMISSIONS,
+    ROLE_DEFAULTS,
     permissions_of,
     require,
 )
 from models.schemas import (
     ExchangeRate,
+    RoleCreate,
+    RoleRename,
     RateInput,
     Role,
     RolePermissionUpdate,
@@ -64,6 +67,59 @@ async def update_role(
     await db.roles.update_one({"kod": kod}, {"$set": {"yetkiler": payload.yetkiler}})
     fresh = await db.roles.find_one({"kod": kod})
     return Role(**(fresh or {}))
+
+
+@router.post("/roles", response_model=Role, status_code=201)
+async def create_role(payload: RoleCreate, user: dict = Depends(require("kullanici:yonet"))):
+    kod = payload.kod.strip().lower()
+    label = payload.label.strip()
+    if not kod or not label:
+        raise HTTPException(status_code=400, detail="Rol kodu ve adı zorunlu")
+    if not all(c.isalnum() or c in "-_" for c in kod):
+        raise HTTPException(
+            status_code=400, detail="Rol kodu yalnızca harf, rakam, - ve _ içerebilir"
+        )
+    if await db.roles.find_one({"kod": kod}):
+        raise HTTPException(status_code=409, detail="Bu rol kodu zaten var")
+    gecersiz = [y for y in payload.yetkiler if y not in ALL_PERMISSIONS]
+    if gecersiz:
+        raise HTTPException(status_code=400, detail=f"Geçersiz yetki: {gecersiz[0]}")
+    doc = {"kod": kod, "label": label, "yetkiler": payload.yetkiler, "sistem": False}
+    await db.roles.insert_one(dict(doc))
+    return Role(**doc)
+
+
+@router.put("/roles/{kod}/ad", response_model=Role)
+async def rename_role(
+    kod: str, payload: RoleRename, user: dict = Depends(require("kullanici:yonet"))
+):
+    role = await db.roles.find_one({"kod": kod})
+    if not role:
+        raise HTTPException(status_code=404, detail="Rol bulunamadı")
+    label = payload.label.strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="Rol adı zorunlu")
+    await db.roles.update_one({"kod": kod}, {"$set": {"label": label}})
+    fresh = await db.roles.find_one({"kod": kod})
+    return Role(**(fresh or {}))
+
+
+@router.delete("/roles/{kod}")
+async def delete_role(kod: str, user: dict = Depends(require("kullanici:yonet"))):
+    role = await db.roles.find_one({"kod": kod})
+    if not role:
+        raise HTTPException(status_code=404, detail="Rol bulunamadı")
+    if kod == "admin" or role.get("sistem"):
+        raise HTTPException(status_code=409, detail="Admin rolü silinemez")
+    if kod in ROLE_DEFAULTS:
+        raise HTTPException(status_code=409, detail="Hazır roller silinemez, yetkileri düzenlenir")
+    kullanan = await db.users.count_documents({"rol": kod})
+    if kullanan:
+        raise HTTPException(
+            status_code=409, detail=f"Bu rol {kullanan} kullanıcıda kullanılıyor, önce rolü değiştirin"
+        )
+    await db.roles.delete_one({"kod": kod})
+    return {"ok": True}
 
 
 # ---------- kullanıcılar ----------

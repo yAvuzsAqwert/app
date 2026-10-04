@@ -451,6 +451,16 @@ class Role(BaseModel):
     sistem: bool = False
 
 
+class RoleCreate(BaseModel):
+    kod: str
+    label: str
+    yetkiler: List[str] = Field(default_factory=list)
+
+
+class RoleRename(BaseModel):
+    label: str
+
+
 class RolePermissionUpdate(BaseModel):
     yetkiler: List[str]
 

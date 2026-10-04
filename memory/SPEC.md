@@ -239,3 +239,12 @@ Eklenenler:
 - PDF: `backend/assets/fonts/Nunito-Regular.ttf` + `Nunito-Bold.ttf` (variable fonttan üretilen
   statik örnekler), `routers/proforma.py::_register_fonts` ile kaydedilir; proforma, proje
   dosyası ve sandık etiketleri bu kayıttan beslenir.
+
+## Rol CRUD (Kullanıcılar & Yetkiler)
+- `POST /api/roles` yeni rol (kod + ad, yetkiler boş başlar), `PUT /api/roles/{kod}/ad` yeniden
+  adlandırma, `PUT /api/roles/{kod}` yetki güncelleme, `DELETE /api/roles/{kod}` silme.
+- Kurallar: kod benzersiz ve slug (harf/rakam/-/_), admin rolü silinemez/değiştirilemez,
+  hazır roller (satis, uretim, muhasebe, izleyici) silinemez ama adı+yetkileri düzenlenir,
+  kullanıcısı olan rol silinemez (409). Tümü `kullanici:yonet` yetkisi gerektirir.
+- UI: `/kullanicilar` → Rol Yetkileri kartında "Yeni Rol", kalem (ad değiştir) ve çöp (sil)
+  butonları + onay diyalogları; yeni rol seçili gelir, yetkiler işaretlenip Kaydet ile yazılır.
