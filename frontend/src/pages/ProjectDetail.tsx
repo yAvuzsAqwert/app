@@ -1,0 +1,1001 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Check,
+  CreditCard,
+  History,
+  Layers,
+  Package,
+  Plus,
+  Save,
+  Trash2,
+  FileText,
+  StickyNote,
+} from "lucide-react";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api";
+import type {
+  CratePayload,
+  ItemPayload,
+  Muhasebe,
+  ProjectDetail as ProjectDetailT,
+  ProjectPayload,
+} from "@/lib/types";
+import {
+  FATURA_TIPLERI,
+  MONTAJ_TIPLERI,
+  ODEME_DURUMLARI,
+  PARA_BIRIMLERI,
+  SATIS_TIPLERI,
+  STAGES,
+  URUN_TIPLERI,
+  fmtDate,
+  fmtDateTime,
+  fmtMoney,
+  stageIndex,
+} from "@/lib/constants";
+import { PageHeader, EmptyState } from "@/components/AppShell";
+import { StageBadge } from "@/components/StageBadge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+
+function errText(err: unknown) {
+  if (err instanceof ApiError) {
+    const body = err.body as { detail?: unknown } | null;
+    if (body && typeof body.detail === "string") return body.detail;
+  }
+  return "İşlem başarısız oldu";
+}
+
+const emptyItem = (): ItemPayload => ({
+  urun: URUN_TIPLERI[0],
+  adet: 1,
+  genislik_mm: 0,
+  acilim_mm: 0,
+  yapi_rengi: "",
+  panel_rengi: "",
+  aydinlatma: "",
+  aydinlatma_rengi: "",
+  led_strip_mtul: 0,
+  led_spot_adet: 0,
+  zip_yapi_rengi: "",
+  zip_kumasi: "",
+  pergola_kumasi: "",
+  kumas_profil_rengi: "",
+  cam_olcusu: "",
+  cam_rengi: "",
+  cam_kombinasyonu: "",
+  tedarikci: "",
+  birim_fiyat: 0,
+  notlar: "",
+});
+
+const emptyCrate = (): CratePayload => ({
+  sandik_no: "",
+  icerik: "",
+  taban_cm: 0,
+  uzunluk_cm: 0,
+  yukseklik_cm: 0,
+  adet: 1,
+  brut_kg: 0,
+  tedarikci: "",
+});
+
+export default function ProjectDetail() {
+  const { id = "" } = useParams();
+  const qc = useQueryClient();
+
+  const { data, isError } = useQuery({
+    queryKey: ["project", id],
+    queryFn: () => apiGet<ProjectDetailT>(`/projects/${id}`),
+    retry: false,
+    enabled: !!id,
+  });
+
+  const detail = isError ? null : data;
+  const project = detail?.project;
+
+  const [info, setInfo] = useState<ProjectPayload | null>(null);
+  const [muh, setMuh] = useState<Muhasebe | null>(null);
+  const [item, setItem] = useState<ItemPayload>(emptyItem);
+  const [crate, setCrate] = useState<CratePayload>(emptyCrate);
+  const [itemOpen, setItemOpen] = useState(false);
+  const [crateOpen, setCrateOpen] = useState(false);
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (!project) return;
+    const { id: _id, proje_kodu: _k, muhasebe, created_at: _c, updated_at: _u, kalem_sayisi: _n, ...rest } = project;
+    setInfo(rest);
+    setMuh(muhasebe);
+  }, [project]);
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["project", id] });
+    qc.invalidateQueries({ queryKey: ["projects"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const stage = useMutation({
+    mutationFn: (durum: string) => apiPatch(`/projects/${id}/stage`, { durum, not: "" }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Aşama güncellendi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const saveInfo = useMutation({
+    mutationFn: () => apiPut(`/projects/${id}`, info),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Proje bilgileri kaydedildi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const saveMuh = useMutation({
+    mutationFn: () => apiPut(`/projects/${id}/muhasebe`, muh),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Muhasebe kaydedildi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const addItem = useMutation({
+    mutationFn: () => apiPost(`/projects/${id}/kalemler`, item),
+    onSuccess: () => {
+      invalidate();
+      setItemOpen(false);
+      setItem(emptyItem());
+      toast.success("Kalem eklendi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const delItem = useMutation({
+    mutationFn: (itemId: string) => apiDelete(`/kalemler/${itemId}`),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Kalem silindi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const addCrate = useMutation({
+    mutationFn: () => apiPost(`/projects/${id}/sandiklar`, crate),
+    onSuccess: () => {
+      invalidate();
+      setCrateOpen(false);
+      setCrate(emptyCrate());
+      toast.success("Sandık eklendi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const delCrate = useMutation({
+    mutationFn: (crateId: string) => apiDelete(`/sandiklar/${crateId}`),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Sandık silindi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const addNote = useMutation({
+    mutationFn: () => apiPost(`/projects/${id}/notlar`, { mesaj: note }),
+    onSuccess: () => {
+      invalidate();
+      setNote("");
+      toast.success("Not eklendi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  // Local mirrors of the backend's compute_muhasebe(), for instant feedback before save.
+  const netSatis = (muh?.satis ?? 0) - (muh?.iskonto_tutari ?? 0);
+  const toplamSatis = netSatis + (muh?.transfer_ucreti ?? 0);
+  const netKar = netSatis - (muh?.alis ?? 0) - (muh?.transfer_ucreti ?? 0);
+  const karYuzde = netSatis ? (netKar / netSatis) * 100 : 0;
+  const tahsilat = (muh?.odemeler ?? []).reduce((s, o) => s + (Number(o.tutar) || 0), 0);
+  const kalan = netSatis - tahsilat;
+  const cur = project?.para_birimi ?? "";
+  const toplamCbm = (detail?.sandiklar ?? []).reduce((s, c) => s + c.hacim_cbm, 0);
+  const toplamKg = (detail?.sandiklar ?? []).reduce((s, c) => s + c.brut_kg, 0);
+  const kalemToplam = (detail?.kalemler ?? []).reduce((s, k) => s + k.adet * k.birim_fiyat, 0);
+
+  const num = (v: string) => (v === "" ? 0 : Number(v));
+  const infoField = (key: keyof ProjectPayload, label: string, type = "text") => (
+    <div className="space-y-1.5">
+      <Label htmlFor={`f-${key}`}>{label}</Label>
+      <Input
+        id={`f-${key}`}
+        type={type}
+        value={(info?.[key] as string | null) ?? ""}
+        onChange={(e) => info && setInfo({ ...info, [key]: e.target.value })}
+        data-testid={`project-${String(key)}-input`}
+      />
+    </div>
+  );
+
+  if (isError) {
+    return (
+      <div data-testid="project-detail-page">
+        <PageHeader title="Proje" subtitle="Kayıt yüklenemedi" />
+        <EmptyState mesaj="Proje bulunamadı veya bağlantı kurulamadı." />
+      </div>
+    );
+  }
+
+  const activeIdx = stageIndex(project?.durum ?? "");
+
+  return (
+    <div data-testid="project-detail-page">
+      <PageHeader
+        title={project?.proje_adi || "Proje Detayı"}
+        subtitle={
+          project
+            ? `${project.proje_kodu} · ${project.musteri} · ${project.firma} · ${project.ulke}`
+            : "Yükleniyor…"
+        }
+      >
+        <Link to="/projeler" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Projeler
+        </Link>
+        {project && <StageBadge durum={project.durum} />}
+        {project && (
+          <Badge variant="outline" className="font-mono">
+            {SATIS_TIPLERI[project.satis_tipi] ?? project.satis_tipi} · {project.para_birimi}
+          </Badge>
+        )}
+      </PageHeader>
+
+      {/* 11-stage stepper */}
+      <Card className="mb-6" data-testid="stage-stepper">
+        <CardHeader>
+          <CardTitle className="text-base">Süreç Aşaması — tıklayarak ilerletin</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {STAGES.map((s, i) => {
+              const done = i < activeIdx;
+              const active = i === activeIdx;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  disabled={stage.isPending}
+                  onClick={() => stage.mutate(s.key)}
+                  data-testid={`stage-step-${s.key}`}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-transform duration-150 hover:-translate-y-0.5",
+                    active && "animate-stage-pulse border-primary bg-primary/20 text-primary font-semibold",
+                    done && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+                    !active && !done && "border-border bg-secondary/40 text-muted-foreground",
+                  )}
+                >
+                  {done && <Check className="h-3 w-3" />}
+                  <span className="font-mono text-[10px]">{i + 1}</span>
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="kalemler">
+        <TabsList variant="line" className="mb-5 flex-wrap" data-testid="project-tabs">
+          <TabsTrigger value="kalemler" data-testid="tab-kalemler">
+            <Layers className="mr-2 h-4 w-4" /> Ürün Kalemleri
+          </TabsTrigger>
+          <TabsTrigger value="muhasebe" data-testid="tab-muhasebe">
+            <CreditCard className="mr-2 h-4 w-4" /> Muhasebe & Tahsilat
+          </TabsTrigger>
+          <TabsTrigger value="lojistik" data-testid="tab-lojistik">
+            <Package className="mr-2 h-4 w-4" /> Sandık & Sevkiyat
+          </TabsTrigger>
+          <TabsTrigger value="bilgiler" data-testid="tab-bilgiler">
+            <FileText className="mr-2 h-4 w-4" /> Proje Bilgileri
+          </TabsTrigger>
+          <TabsTrigger value="gecmis" data-testid="tab-gecmis">
+            <History className="mr-2 h-4 w-4" /> İşlem Geçmişi
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ---------- Items ---------- */}
+        <TabsContent value="kalemler">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">
+                Ürün Kalemleri ({detail?.kalemler.length ?? 0}) — Toplam{" "}
+                <span className="font-mono text-primary">{fmtMoney(kalemToplam, cur)}</span>
+              </CardTitle>
+              <Dialog open={itemOpen} onOpenChange={setItemOpen}>
+                <DialogTrigger
+                  render={
+                    <Button size="sm" data-testid="add-item-button">
+                      <Plus className="mr-2 h-4 w-4" /> Kalem Ekle
+                    </Button>
+                  }
+                />
+                <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>Yeni Ürün Kalemi</DialogTitle>
+                  </DialogHeader>
+                  <form
+                    className="grid gap-4 sm:grid-cols-3"
+                    data-testid="add-item-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addItem.mutate();
+                    }}
+                  >
+                    <div className="space-y-1.5 sm:col-span-3">
+                      <Label>Ürün *</Label>
+                      <Select
+                        value={item.urun}
+                        onValueChange={(v: string) => setItem({ ...item, urun: v })}
+                      >
+                        <SelectTrigger data-testid="item-urun-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {URUN_TIPLERI.map((u) => (
+                            <SelectItem key={u} value={u}>
+                              {u}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {(
+                      [
+                        ["adet", "Adet", "number"],
+                        ["genislik_mm", "Genişlik (mm)", "number"],
+                        ["acilim_mm", "Açılım (mm)", "number"],
+                        ["yapi_rengi", "Yapı Rengi (RAL)", "text"],
+                        ["panel_rengi", "Panel Rengi", "text"],
+                        ["aydinlatma", "Aydınlatma", "text"],
+                        ["aydinlatma_rengi", "Aydınlatma Rengi", "text"],
+                        ["led_strip_mtul", "LED Strip (mtül)", "number"],
+                        ["led_spot_adet", "LED Spot (adet)", "number"],
+                        ["zip_yapi_rengi", "Zip Yapı Rengi", "text"],
+                        ["zip_kumasi", "Zip Kumaşı", "text"],
+                        ["pergola_kumasi", "Pergola Kumaşı", "text"],
+                        ["kumas_profil_rengi", "Kumaş Profil Rengi", "text"],
+                        ["cam_olcusu", "Cam Ölçüsü", "text"],
+                        ["cam_rengi", "Cam Rengi", "text"],
+                        ["cam_kombinasyonu", "Cam Kombinasyonu", "text"],
+                        ["tedarikci", "Tedarikçi", "text"],
+                        ["birim_fiyat", "Birim Fiyat", "number"],
+                      ] as [keyof ItemPayload, string, string][]
+                    ).map(([key, label, type]) => (
+                      <div className="space-y-1.5" key={key}>
+                        <Label htmlFor={`i-${key}`}>{label}</Label>
+                        <Input
+                          id={`i-${key}`}
+                          type={type}
+                          value={String(item[key] ?? "")}
+                          onChange={(e) =>
+                            setItem({
+                              ...item,
+                              [key]: type === "number" ? num(e.target.value) : e.target.value,
+                            })
+                          }
+                          data-testid={`item-${String(key)}-input`}
+                        />
+                      </div>
+                    ))}
+                    <div className="space-y-1.5 sm:col-span-3">
+                      <Label htmlFor="i-notlar">Not</Label>
+                      <Textarea
+                        id="i-notlar"
+                        value={item.notlar}
+                        onChange={(e) => setItem({ ...item, notlar: e.target.value })}
+                        rows={2}
+                        data-testid="item-notlar-input"
+                      />
+                    </div>
+                    <DialogFooter className="sm:col-span-3">
+                      <Button type="submit" disabled={addItem.isPending} data-testid="save-item-button">
+                        {addItem.isPending ? "Ekleniyor…" : "Kalemi Ekle"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {detail?.kalemler.length ? (
+                <Table data-testid="items-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ürün</TableHead>
+                      <TableHead className="text-right">Adet</TableHead>
+                      <TableHead className="text-right">Genişlik</TableHead>
+                      <TableHead className="text-right">Açılım</TableHead>
+                      <TableHead>Yapı / Panel Rengi</TableHead>
+                      <TableHead>Aydınlatma</TableHead>
+                      <TableHead>Cam / Kumaş</TableHead>
+                      <TableHead>Tedarikçi</TableHead>
+                      <TableHead className="text-right">Birim</TableHead>
+                      <TableHead className="text-right">Tutar</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detail.kalemler.map((k) => (
+                      <TableRow
+                        key={k.id}
+                        className="transition-colors duration-100 hover:bg-secondary/50"
+                        data-testid={`item-row-${k.id}`}
+                      >
+                        <TableCell className="max-w-64 text-sm">{k.urun}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{k.adet}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {k.genislik_mm || "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {k.acilim_mm || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {k.yapi_rengi || "—"}
+                          {k.panel_rengi ? ` / ${k.panel_rengi}` : ""}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {k.aydinlatma || "—"}
+                          {k.led_strip_mtul ? ` · ${k.led_strip_mtul}m` : ""}
+                          {k.led_spot_adet ? ` · ${k.led_spot_adet} spot` : ""}
+                        </TableCell>
+                        <TableCell className="max-w-48 text-xs">
+                          {[k.cam_kombinasyonu, k.cam_rengi, k.zip_kumasi, k.pergola_kumasi]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs">{k.tedarikci || "—"}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {fmtMoney(k.birim_fiyat)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs font-semibold">
+                          {fmtMoney(k.adet * k.birim_fiyat)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => delItem.mutate(k.id)}
+                            data-testid={`delete-item-${k.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <EmptyState mesaj="Henüz kalem eklenmemiş." icon={<Layers className="h-6 w-6" />} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------- Accounting ---------- */}
+        <TabsContent value="muhasebe">
+          <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+            <Card data-testid="accounting-card">
+              <CardHeader>
+                <CardTitle className="text-base">Satış & Maliyet</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                {(
+                  [
+                    ["satis", "Satış"],
+                    ["alis", "Alış"],
+                    ["iskonto_tutari", "İskonto Tutarı"],
+                    ["transfer_ucreti", "Transfer Ücreti"],
+                  ] as [keyof Muhasebe, string][]
+                ).map(([key, label]) => (
+                  <div className="space-y-1.5" key={key}>
+                    <Label htmlFor={`m-${key}`}>{label}</Label>
+                    <Input
+                      id={`m-${key}`}
+                      type="number"
+                      step="0.01"
+                      value={String(muh?.[key] ?? 0)}
+                      onChange={(e) => muh && setMuh({ ...muh, [key]: num(e.target.value) })}
+                      data-testid={`muhasebe-${String(key)}-input`}
+                    />
+                  </div>
+                ))}
+                <div className="space-y-1.5">
+                  <Label>Fatura Tipi</Label>
+                  <Select
+                    value={muh?.fatura_tipi ?? "ihrac_kayitli"}
+                    onValueChange={(v: string) => muh && setMuh({ ...muh, fatura_tipi: v })}
+                  >
+                    <SelectTrigger data-testid="muhasebe-fatura_tipi-select">
+                      <SelectValue>{(v) => FATURA_TIPLERI[v as string] ?? "—"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(FATURA_TIPLERI).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>
+                          {v}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Ödeme Durumu (otomatik)</Label>
+                  <Input
+                    readOnly
+                    value={ODEME_DURUMLARI[muh?.odeme_durumu ?? "bekliyor"] ?? "—"}
+                    data-testid="muhasebe-odeme_durumu-display"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-2 rounded-md border border-border bg-secondary/30 p-4">
+                  {[
+                    ["Transfer Dahil Toplam Satış", fmtMoney(toplamSatis, cur), "text-foreground", "calc-total-sales"],
+                    ["Net Kar", fmtMoney(netKar, cur), netKar >= 0 ? "text-emerald-400" : "text-destructive", "calc-net-profit"],
+                    ["Kar %", `${karYuzde.toFixed(2)} %`, "text-sky-400", "calc-margin"],
+                    ["Toplam Tahsilat", fmtMoney(tahsilat, cur), "text-emerald-400", "calc-collected"],
+                    ["Kalan Bakiye", fmtMoney(kalan, cur), kalan > 0 ? "text-amber-400" : "text-emerald-400", "calc-balance"],
+                  ].map(([label, value, tone, testid]) => (
+                    <div className="flex items-center justify-between" key={label} data-testid={testid}>
+                      <span className="text-sm text-muted-foreground">{label}</span>
+                      <span className={cn("font-mono text-sm font-semibold tabular-nums", tone)}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <Button
+                    onClick={() => saveMuh.mutate()}
+                    disabled={saveMuh.isPending}
+                    className="w-full"
+                    data-testid="save-accounting-button"
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    {saveMuh.isPending ? "Kaydediliyor…" : "Muhasebeyi Kaydet"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="installments-card">
+              <CardHeader>
+                <CardTitle className="text-base">Alınan Ödemeler (5 Taksit)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(muh?.odemeler ?? []).map((o, i) => (
+                  <div
+                    key={i}
+                    className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-[auto_1fr_1fr]"
+                    data-testid={`installment-row-${i + 1}`}
+                  >
+                    <Badge variant="secondary" className="h-fit font-mono">
+                      {i + 1}. Ödeme
+                    </Badge>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`o-t-${i}`}>Tutar</Label>
+                      <Input
+                        id={`o-t-${i}`}
+                        type="number"
+                        step="0.01"
+                        value={String(o.tutar ?? 0)}
+                        onChange={(e) => {
+                          if (!muh) return;
+                          const odemeler = muh.odemeler.map((x, xi) =>
+                            xi === i ? { ...x, tutar: num(e.target.value) } : x,
+                          );
+                          setMuh({ ...muh, odemeler });
+                        }}
+                        data-testid={`installment-amount-${i + 1}`}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`o-d-${i}`}>Tahsilat Tarihi</Label>
+                      <Input
+                        id={`o-d-${i}`}
+                        type="date"
+                        value={o.tarih ?? ""}
+                        onChange={(e) => {
+                          if (!muh) return;
+                          const odemeler = muh.odemeler.map((x, xi) =>
+                            xi === i ? { ...x, tarih: e.target.value || null } : x,
+                          );
+                          setMuh({ ...muh, odemeler });
+                        }}
+                        data-testid={`installment-date-${i + 1}`}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {!muh && <EmptyState mesaj="Muhasebe verisi yükleniyor." />}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ---------- Logistics ---------- */}
+        <TabsContent value="lojistik">
+          <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+            <Card data-testid="crates-card">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">
+                  Sandık / Paket Listesi — {toplamCbm.toFixed(3)} m³ · {toplamKg.toFixed(0)} kg
+                </CardTitle>
+                <Dialog open={crateOpen} onOpenChange={setCrateOpen}>
+                  <DialogTrigger
+                    render={
+                      <Button size="sm" data-testid="add-crate-button">
+                        <Plus className="mr-2 h-4 w-4" /> Sandık Ekle
+                      </Button>
+                    }
+                  />
+                  <DialogContent className="sm:max-w-xl">
+                    <DialogHeader>
+                      <DialogTitle>Yeni Sandık / Paket</DialogTitle>
+                    </DialogHeader>
+                    <form
+                      className="grid gap-4 sm:grid-cols-2"
+                      data-testid="add-crate-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        addCrate.mutate();
+                      }}
+                    >
+                      {(
+                        [
+                          ["sandik_no", "Sandık No", "text"],
+                          ["tedarikci", "Tedarikçi", "text"],
+                          ["taban_cm", "Taban / En (cm)", "number"],
+                          ["uzunluk_cm", "Uzunluk (cm)", "number"],
+                          ["yukseklik_cm", "Yükseklik (cm)", "number"],
+                          ["adet", "Adet", "number"],
+                          ["brut_kg", "Brüt Kilo (kg)", "number"],
+                        ] as [keyof CratePayload, string, string][]
+                      ).map(([key, label, type]) => (
+                        <div className="space-y-1.5" key={key}>
+                          <Label htmlFor={`c-${key}`}>{label}</Label>
+                          <Input
+                            id={`c-${key}`}
+                            type={type}
+                            value={String(crate[key] ?? "")}
+                            onChange={(e) =>
+                              setCrate({
+                                ...crate,
+                                [key]: type === "number" ? num(e.target.value) : e.target.value,
+                              })
+                            }
+                            data-testid={`crate-${String(key)}-input`}
+                          />
+                        </div>
+                      ))}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label htmlFor="c-icerik">İçerik</Label>
+                        <Textarea
+                          id="c-icerik"
+                          rows={2}
+                          value={crate.icerik}
+                          onChange={(e) => setCrate({ ...crate, icerik: e.target.value })}
+                          data-testid="crate-icerik-input"
+                        />
+                      </div>
+                      <DialogFooter className="sm:col-span-2">
+                        <Button
+                          type="submit"
+                          disabled={addCrate.isPending}
+                          data-testid="save-crate-button"
+                        >
+                          {addCrate.isPending ? "Ekleniyor…" : "Sandığı Ekle"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {detail?.sandiklar.length ? (
+                  <Table data-testid="crates-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sandık</TableHead>
+                        <TableHead>İçerik</TableHead>
+                        <TableHead className="text-right">Taban</TableHead>
+                        <TableHead className="text-right">Uzunluk</TableHead>
+                        <TableHead className="text-right">Yükseklik</TableHead>
+                        <TableHead className="text-right">Adet</TableHead>
+                        <TableHead className="text-right">m³</TableHead>
+                        <TableHead className="text-right">Kg</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detail.sandiklar.map((c) => (
+                        <TableRow key={c.id} data-testid={`crate-row-${c.id}`}>
+                          <TableCell className="font-mono text-xs">{c.sandik_no || "—"}</TableCell>
+                          <TableCell className="max-w-52 truncate text-xs">
+                            {c.icerik || "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">{c.taban_cm}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {c.uzunluk_cm}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {c.yukseklik_cm}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">{c.adet}</TableCell>
+                          <TableCell className="text-right font-mono text-xs font-semibold text-primary">
+                            {c.hacim_cbm}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">{c.brut_kg}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => delCrate.mutate(c.id)}
+                              data-testid={`delete-crate-${c.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <EmptyState
+                    mesaj="Sandık listesi henüz girilmemiş."
+                    icon={<Package className="h-6 w-6" />}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card data-testid="shipping-info-card">
+              <CardHeader>
+                <CardTitle className="text-base">Lojistik, Fatura & Gümrük</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                {infoField("lojistik_firmasi", "Lojistik Firması")}
+                {infoField("rezervasyon_kodu", "Rezervasyon Kodu")}
+                {infoField("konteyner_no", "Konteyner / Tır Plaka No")}
+                {infoField("sevk_tarihi", "Sevk Tarihi", "date")}
+                {infoField("gumruk_musavirligi", "Gümrük Müşavirliği")}
+                {infoField("beyanname_no", "Beyanname No")}
+                <Button
+                  onClick={() => saveInfo.mutate()}
+                  disabled={saveInfo.isPending}
+                  data-testid="save-shipping-button"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {saveInfo.isPending ? "Kaydediliyor…" : "Sevkiyat Bilgilerini Kaydet"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ---------- Project info ---------- */}
+        <TabsContent value="bilgiler">
+          <Card data-testid="project-info-card">
+            <CardHeader>
+              <CardTitle className="text-base">Proje Bilgileri</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
+                <Label htmlFor="f-proje_adi">Proje Adı</Label>
+                <Input
+                  id="f-proje_adi"
+                  value={info?.proje_adi ?? ""}
+                  onChange={(e) => info && setInfo({ ...info, proje_adi: e.target.value })}
+                  data-testid="project-proje_adi-input"
+                />
+              </div>
+              {infoField("firma", "Firma")}
+              {infoField("musteri", "Müşteri")}
+              {infoField("ulke", "Ülke")}
+              {infoField("tedarikci", "Tedarikçi")}
+              {infoField("proje_tarihi", "Proje Tarihi", "date")}
+              {infoField("termin_tarihi", "Termin Tarihi", "date")}
+              {infoField("musteri_onay_tarihi", "Müşteri Onay Tarihi", "date")}
+              {infoField("tedarikci_onay_tarihi", "Tedarikçi Onay Tarihi", "date")}
+
+              <div className="space-y-1.5">
+                <Label>Montaj Tipi</Label>
+                <Select
+                  value={info?.montaj_tipi || MONTAJ_TIPLERI[0]}
+                  onValueChange={(v: string) => info && setInfo({ ...info, montaj_tipi: v })}
+                >
+                  <SelectTrigger data-testid="project-montaj_tipi-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTAJ_TIPLERI.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Para Birimi</Label>
+                <Select
+                  value={info?.para_birimi || "EUR"}
+                  onValueChange={(v: string) => info && setInfo({ ...info, para_birimi: v })}
+                >
+                  <SelectTrigger data-testid="project-para_birimi-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PARA_BIRIMLERI.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Satış Tipi</Label>
+                <Select
+                  value={info?.satis_tipi || "ihracat"}
+                  onValueChange={(v: string) => info && setInfo({ ...info, satis_tipi: v })}
+                >
+                  <SelectTrigger data-testid="project-satis_tipi-select">
+                    <SelectValue>{(v) => SATIS_TIPLERI[v as string] ?? "—"}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SATIS_TIPLERI).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
+                <Label htmlFor="f-notlar">Not</Label>
+                <Textarea
+                  id="f-notlar"
+                  rows={4}
+                  value={info?.notlar ?? ""}
+                  onChange={(e) => info && setInfo({ ...info, notlar: e.target.value })}
+                  data-testid="project-notlar-input"
+                />
+              </div>
+              <div className="sm:col-span-2 xl:col-span-3">
+                <Button
+                  onClick={() => saveInfo.mutate()}
+                  disabled={saveInfo.isPending}
+                  data-testid="save-info-button"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {saveInfo.isPending ? "Kaydediliyor…" : "Bilgileri Kaydet"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------- Timeline ---------- */}
+        <TabsContent value="gecmis">
+          <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+            <Card data-testid="timeline-card">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  İşlem Geçmişi ({detail?.hareketler.length ?? 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {detail?.hareketler.length ? (
+                  detail.hareketler.map((a) => (
+                    <div
+                      key={a.id}
+                      className="border-l-2 border-primary/40 pl-4"
+                      data-testid={`timeline-item-${a.id}`}
+                    >
+                      <p className="text-sm">{a.mesaj}</p>
+                      <p className="font-mono text-[11px] text-muted-foreground">
+                        {a.tip} · {a.kullanici || "sistem"} · {fmtDateTime(a.created_at)}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <EmptyState mesaj="Henüz hareket kaydı yok." />
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+              <Card data-testid="add-note-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <StickyNote className="h-4 w-4 text-primary" /> Not Ekle
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Textarea
+                    rows={4}
+                    placeholder="Revizyon detayı, müşteri görüşmesi, termin bilgisi…"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    data-testid="note-input"
+                  />
+                  <Button
+                    className="w-full"
+                    disabled={!note.trim() || addNote.isPending}
+                    onClick={() => addNote.mutate()}
+                    data-testid="add-note-button"
+                  >
+                    {addNote.isPending ? "Ekleniyor…" : "Notu Kaydet"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="milestones-card">
+                <CardHeader>
+                  <CardTitle className="text-base">Kilometre Taşları</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {[
+                    ["Proje Tarihi", project?.proje_tarihi],
+                    ["Müşteri Onayı", project?.musteri_onay_tarihi],
+                    ["Tedarikçi Onayı", project?.tedarikci_onay_tarihi],
+                    ["Termin", project?.termin_tarihi],
+                    ["Sevk", project?.sevk_tarihi],
+                  ].map(([label, value]) => (
+                    <div className="flex justify-between" key={label as string}>
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className="font-mono text-xs">{fmtDate(value as string | null)}</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

@@ -1,0 +1,322 @@
+{
+  "theme": {
+    "archetype": "ARCHETYPE 4: SWISS & HIGH-CONTRAST + ARCHITECTURAL PRECISION",
+    "description": "High-density precision engineering B2B trade management application for Pergola, Awnings (Tente), Bioclimatic Aluminum Systems, and Glass facades export pipelines. Dark obsidian slate command palette with high-visibility signal accents (International Safety Orange/Amber for status, Precision Cobalt for actions, Emerald for financial clearance and customs clearance).",
+    "mode": "dark",
+    "locale": "tr-TR",
+    "currency_support": ["TRY", "EUR", "USD"]
+  },
+  "colors": {
+    "surfaces": [
+      {
+        "name": "page",
+        "kind": "solid",
+        "bg": "#0B0F17",
+        "on_bg": "#F8FAFC",
+        "on_bg_muted": "#94A3B8",
+        "roles": {
+          "link": "#60A5FA",
+          "border": "#1E293B",
+          "border_focus": "#38BDF8",
+          "error": "#F87171",
+          "warning": "#FBBF24",
+          "success": "#34D399",
+          "stage_pill": "#1E293B"
+        }
+      },
+      {
+        "name": "panel",
+        "kind": "solid",
+        "bg": "#111827",
+        "on_bg": "#F9FAFB",
+        "on_bg_muted": "#9CA3AF",
+        "roles": {
+          "link": "#38BDF8",
+          "border": "#1F2937",
+          "error": "#EF4444",
+          "warning": "#F59E0B",
+          "success": "#10B981"
+        }
+      },
+      {
+        "name": "card_elevated",
+        "kind": "solid",
+        "bg": "#1E293B",
+        "on_bg": "#FFFFFF",
+        "on_bg_muted": "#CBD5E1",
+        "roles": {
+          "border": "#334155",
+          "accent_highlight": "#F97316",
+          "success": "#22C55E"
+        }
+      },
+      {
+        "name": "stepper_surface",
+        "kind": "solid",
+        "bg": "#0F172A",
+        "on_bg": "#F1F5F9",
+        "on_bg_muted": "#94A3B8",
+        "roles": {
+          "active_step": "#F97316",
+          "completed_step": "#10B981",
+          "pending_step": "#475569",
+          "step_line": "#334155"
+        }
+      },
+      {
+        "name": "table_header",
+        "kind": "solid",
+        "bg": "#0D1525",
+        "on_bg": "#E2E8F0",
+        "on_bg_muted": "#94A3B8"
+      },
+      {
+        "name": "table_row_alt",
+        "kind": "solid",
+        "bg": "#141D2E",
+        "on_bg": "#F8FAFC",
+        "on_bg_muted": "#94A3B8"
+      },
+      {
+        "name": "hero_auth",
+        "kind": "image",
+        "contrast_against": "#080C14",
+        "guarantee": "scrim: linear-gradient(135deg, rgba(11,15,23,0.95) 0%, rgba(15,23,42,0.85) 50%, rgba(11,15,23,0.92) 100%)",
+        "on_bg": "#FFFFFF",
+        "on_bg_muted": "#CBD5E1",
+        "roles": {
+          "link": "#38BDF8",
+          "accent": "#F97316"
+        }
+      },
+      {
+        "name": "badge_success",
+        "kind": "solid",
+        "bg": "#064E3B",
+        "on_bg": "#ECFDF5",
+        "on_bg_muted": "#A7F3D0"
+      },
+      {
+        "name": "badge_warning",
+        "kind": "solid",
+        "bg": "#78350F",
+        "on_bg": "#FFFBEB",
+        "on_bg_muted": "#FDE68A"
+      },
+      {
+        "name": "badge_danger",
+        "kind": "solid",
+        "bg": "#7F1D1D",
+        "on_bg": "#FEF2F2",
+        "on_bg_muted": "#FECACA"
+      },
+      {
+        "name": "badge_info",
+        "kind": "solid",
+        "bg": "#1E3A8A",
+        "on_bg": "#EFF6FF",
+        "on_bg_muted": "#BFDBFE"
+      },
+      {
+        "name": "badge_neutral",
+        "kind": "solid",
+        "bg": "#334155",
+        "on_bg": "#F8FAFC",
+        "on_bg_muted": "#CBD5E1"
+      }
+    ],
+    "accent": "#F97316",
+    "on_accent": "#000000",
+    "accent_secondary": "#0284C7",
+    "on_accent_secondary": "#FFFFFF"
+  },
+  "typography": {
+    "font_family_heading": "'Space Grotesk Variable', sans-serif",
+    "font_family_sans": "'DM Sans Variable', sans-serif",
+    "font_family_mono": "'JetBrains Mono Variable', monospace",
+    "import_statements": [
+      "@import \"@fontsource-variable/space-grotesk\";",
+      "@import \"@fontsource-variable/dm-sans\";",
+      "@import \"@fontsource-variable/jetbrains-mono\";"
+    ],
+    "scale_px": {
+      "display": 52,
+      "h1": 36,
+      "h2": 28,
+      "h3": 20,
+      "h4": 18,
+      "body": 15,
+      "caption": 13
+    },
+    "rules": {
+      "headings": "font-heading font-bold tracking-tight text-slate-100",
+      "body": "font-sans text-slate-200 text-sm leading-relaxed",
+      "mono_specs": "font-mono text-xs tracking-wider text-slate-300",
+      "currency_numbers": "font-mono font-semibold tracking-tight tabular-nums"
+    }
+  },
+  "entry_surfaces": {
+    "/": "split layout: left side hero architectural Pergola/Glass system visual with live pipeline statistics ribbon, right side Turkish trade enterprise login & quick-demo toggle panel",
+    "/login": "split hero — architectural Pergola & Tente export positioning panel left, high-security email+password auth form right",
+    "/dashboard": "command center dashboard with 5-KPI financial & operational header, 11-stage pipeline distribution bar, active export projects table, and logistics dispatch summary",
+    "/projects": "dense multi-filter project registry with 11-stage filter chips, dealer country tags, export currency badges, and modal for creating new pergola/glass orders",
+    "/projects/:id": "high-precision project detail console with 11-stage horizontal stepper, product specs (kalemler) CRUD table, multi-currency accounting & 5-installment ledger, crate packing (sandık) logistics planner, and activity log",
+    "/reports/daily": "daily export & production report cockpit with date navigation picker, stage transition ledger, revenue & profit cards, and direct openpyxl / xlsx export action",
+    "/dealers": "domestic and overseas dealer directory with credit status, country, open orders, and trade history"
+  },
+  "pipeline_stages_11": [
+    {"index": 1, "key": "talep_alindi", "label": "Talep Alındı", "description": "Bayiden ölçü ve teknik şartname talebi geldi", "color": "text-sky-400 border-sky-500/30 bg-sky-500/10"},
+    {"index": 2, "key": "teklif_proforma", "label": "Teklif / Proforma", "description": "Teknik çizim ve Proforma Fatura hazırlandı", "color": "text-blue-400 border-blue-500/30 bg-blue-500/10"},
+    {"index": 3, "key": "revizyon", "label": "Revizyon", "description": "Ölçü, motor veya cam kombinasyonu revizyonları yapılıyor", "color": "text-amber-400 border-amber-500/30 bg-amber-500/10"},
+    {"index": 4, "key": "musteri_onayi", "label": "Müşteri Onayı", "description": "Nihai proforma ve teknik çizim bayi tarafından onaylandı", "color": "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"},
+    {"index": 5, "key": "uretim", "label": "Üretim", "description": "Fabrika ve tedarikçilere sipariş geçildi, termin işliyor", "color": "text-indigo-400 border-indigo-500/30 bg-indigo-500/10"},
+    {"index": 6, "key": "paketleme", "label": "Paketleme / Sandık", "description": "Sandık listesi (L×W×H, Kg) oluşturuldu, barkodlandı", "color": "text-yellow-400 border-yellow-500/30 bg-yellow-500/10"},
+    {"index": 7, "key": "lojistik_rezervasyon", "label": "Lojistik / Rezervasyon", "description": "Navlun teklifleri toplandı, tır/konteyner rezervasyonu yapıldı", "color": "text-orange-400 border-orange-500/30 bg-orange-500/10"},
+    {"index": 8, "key": "yuklendi_sevk", "label": "Yüklendi / Sevk", "description": "Konteyner/tıra yüklendi, çıkış yapıldı, konşimento alındı", "color": "text-cyan-400 border-cyan-500/30 bg-cyan-500/10"},
+    {"index": 9, "key": "fatura", "label": "Fatura", "description": "Tedarikçi faturaları ve ihraç kayıtlı / KDV'li fatura kesildi", "color": "text-teal-400 border-teal-500/30 bg-teal-500/10"},
+    {"index": 10, "key": "gumruk_beyanname", "label": "Gümrük / Beyanname", "description": "Gümrük müşavirliği ile ihracat beyannamesi açıldı / tescil edildi", "color": "text-purple-400 border-purple-500/30 bg-purple-500/10"},
+    {"index": 11, "key": "tamamlandi", "label": "Tamamlandı", "description": "Tahsilat kapandı, gümrük beyannamesi kapandı, dosya arşivlendi", "color": "text-emerald-300 border-emerald-400/30 bg-emerald-500/20"}
+  ],
+  "product_catalog_specs": {
+    "product_types": [
+      "Bioklimatik Pergola (Alüminyum Lamelli)",
+      "Montaja Hazır Pergola (PVC / Blackout Kumaşlı)",
+      "Sürme Cam Sistemi (3 Raylı / 5 Raylı)",
+      "Giyotin Cam Sistemi (Motorlu / Zincirli)",
+      "Zip Perde / Dış Cephe Güneş Kırıcı",
+      "Kasetli Tente / Mafsallı Tente",
+      "Sabit Cam Tavan & Kış Bahçesi"
+    ],
+    "frame_ral_colors": [
+      "RAL 7016 Antrasit Gri (Mat/Pütürlü)",
+      "RAL 9016 Trafik Beyazı",
+      "RAL 9005 Mat Siyah",
+      "RAL 8019 Kahve Dokulu",
+      "RAL 9006 Metalik Gümüş",
+      "Özel Ahşap Desen Transferli"
+    ],
+    "glass_combinations": [
+      "8mm Temperli Şeffaf",
+      "10mm Temperli Şeffaf",
+      "4+12+4 Isıcam Temperli",
+      "5+12+5 Solar Low-E Füme Temperli",
+      "6+12+6 Konfor Cam (Bronz/Reflekte)",
+      "8mm Temperli Füme / Reflekte"
+    ],
+    "lighting_and_led": [
+      "Entegre Samsung LED (3000K Günışığı / Dimmerli)",
+      "Entegre Samsung LED (4000K Doğal Beyaz)",
+      "RGB Çevre Aydınlatma + Somfy RTS Alıcı",
+      "Aydınlatmasız"
+    ],
+    "fabric_and_sensors": [
+      "Serge Ferrari Soltis 86 (Zip Perde)",
+      "Dickson Sunworker Mat",
+      "Sattler PVC Blackout 850 gr/m² (Pergola)",
+      "Somfy Rüzgar + Güneş Sensörü Eklentisi",
+      "Becker Akıllı Motor & Uzaktan Kumanda"
+    ]
+  },
+  "accounting_and_multi_currency": {
+    "currencies": ["TRY", "EUR", "USD"],
+    "fields": [
+      "satis_tutari (Satış Fiyatı)",
+      "alis_maliyeti (Üretici & Tedarikçi Alış Maliyeti)",
+      "iskonto_orani_yuzde (İskonto %)",
+      "transfer_ve_gumruk_ucreti (Transfer, Navlun & Gümrük Masrafları)",
+      "toplam_satis (Net Satış = Satış - İskonto)",
+      "net_kar (Net Kar = Toplam Satış - Alış Maliyeti - Masraflar)",
+      "kar_marji_yuzde (Kar % = Net Kar / Toplam Satış * 100)",
+      "fatura_tipi (İhraç Kayıtlı / %20 KDV'li / KDV Muaf)",
+      "odeme_durumu (Bekliyor / Kısmi Tahsil Edildi / Tamamlandı)",
+      "taksit_plani (5 Taksit Kaydı: Taksit No, Tutar, Vade Tarihi, Ödendi/Bekliyor, Tahsilat Tarihi, Dekont/Not)",
+      "toplam_tahsilat (Ödenen Toplam)",
+      "kalan_bakiye (Kalan Tahsil Edilecek Tutar)"
+    ]
+  },
+  "packing_and_logistics_fields": [
+    "sandik_no (Örn: SND-01, SND-02)",
+    "icerik_aciklamasi (Örn: Bioklimatik Lameller & Taşıyıcı Dikmeler)",
+    "taban_en_cm (Width - W)",
+    "uzunluk_cm (Length - L)",
+    "yukseklik_cm (Height - H)",
+    "hacim_cbm (m³ = L * W * H / 1.000.000)",
+    "brut_kilo_kg (Gross Weight)",
+    "tedarikci_firma (Örn: ASAŞ Alüminyum / Somfy / Şişecam Bayi)",
+    "lojistik_firmasi (Örn: Ekol Lojistik / DSV / Mars / Alışan)",
+    "rezervasyon_kodu (Booking Reference)",
+    "plaka_veya_konteyner_no (Tır Plaka / Container No)",
+    "yukleme_tarihi (Dispatch Date)",
+    "tahmini_varis_tarihi (ETA Date)",
+    "gumruk_musavirligi (Gümrük Acentesi)"
+  ],
+  "image_urls": [
+    {
+      "category": "hero_auth_background",
+      "url": "https://images.unsplash.com/photo-1784288195987-e10511825f4b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBwZXJnb2xhJTIwYXJjaGl0ZWN0dXJhbHxlbnwwfHx8fDE3OTEwOTAwMjJ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern architectural pergola canopy structure with luxury white louvers and clean perspective"
+    },
+    {
+      "category": "product_bioclimatic_pergola",
+      "url": "https://images.unsplash.com/photo-1763592593550-8ea11c9b6c73?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBwZXJnb2xhJTIwYXJjaGl0ZWN0dXJhbHxlbnwwfHx8fDE3OTEwOTAwMjJ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Bioclimatic motorized pergola louvers with sleek white aluminum frame under sky"
+    },
+    {
+      "category": "product_glass_facade",
+      "url": "https://images.unsplash.com/photo-1621831337128-35676ca30868?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwzfHxhbHVtaW51bSUyMGdsYXNzJTIwZmFjYWRlJTIwYXJjaGl0ZWN0dXJlfGVufDB8fHx8MTc5MTA5MDAyMnww&ixlib=rb-4.1.0&q=85",
+      "description": "High precision architectural sliding glass and guillotine facade engineering"
+    },
+    {
+      "category": "logistics_shipping_crates",
+      "url": "https://images.unsplash.com/photo-1605732562742-3023a888e56e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwzfHxmcmVpZ2h0JTIwc2hpcHBpbmclMjBjb250YWluZXIlMjBjYXJnb3xlbnwwfHx8fDE3OTEwOTAwMjJ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "International container cargo freight logistics for export crates dispatch"
+    }
+  ],
+  "layout_and_components": {
+    "app_shell": {
+      "sidebar": "Collapsible modern sidebar with trade status count badges (Tümü, Aktif Siparişler, İhracat, Yurtiçi, Arşiv), quick currency ticker (EUR/TRY, USD/TRY rates), dealer filter, user profile, and Turkish quick actions ('+ Yeni Sipariş / Proje').",
+      "top_header": "Global search by Project Code (e.g. PRG-2026-084), Client Dealer Name, Country, or Container No; Stage Quick-Jump selector; Date picker; Quick notification pill for overdue revisions or loading deadlines.",
+      "main_container": "Max width 1600px desktop optimized, high-density padding p-6 lg:p-8, structured 12-column Swiss grid for widgets, charts, and tables."
+    },
+    "project_detail_layout": {
+      "stage_stepper": "Sticky top 11-stage interactive horizontal timeline stepper. Clicking on any stage reveals confirmation modal or direct stage progression with automated timestamp and activity logger.",
+      "tabs": [
+        {"id": "genel_ve_kalemler", "label": "Ürün Kalemleri & Teknik Şartname", "icon": "Layers"},
+        {"id": "muhasebe_finans", "label": "Muhasebe & 5 Taksit Planı", "icon": "CreditCard"},
+        {"id": "paketleme_lojistik", "label": "Sandık / Paket Listesi & Sevkiyat", "icon": "Package"},
+        {"id": "gumruk_fatura", "label": "Fatura, Beyanname & Evraklar", "icon": "FileText"},
+        {"id": "zaman_tuneli", "label": "İşlem Geçmişi & Revizyon Notları", "icon": "History"}
+      ]
+    },
+    "dashboard_widgets": [
+      {"name": "StagePipelineBar", "description": "Interactive visual stacked funnel showing 11 stages and order count / total export value per stage."},
+      {"name": "FinancialSummaryCards", "description": "4-card metrics: Toplam Sipariş Değeri, Tahsil Edilen Tutar, Bekleyen Bakiye, Tahmini Net Kar & Ortalama Kar %."},
+      {"name": "UpcomingShipmentsTable", "description": "Orders scheduled for loading / customs declaration within the next 7 days."},
+      {"name": "CurrencyExposureDonut", "description": "EUR vs USD vs TRY export distribution chart with real-time conversion summaries."},
+      {"name": "RecentActivityFeed", "description": "Real-time audit log of stage upgrades, proforma revisions, and crate measurements logged by team members."}
+    ]
+  },
+  "motion_and_interactions": {
+    "page_transition": "opacity 0.2s ease, transform 0.2s ease",
+    "stepper_pulse": "Continuous subtle amber/orange pulse ring on the current active stage pill.",
+    "hover_lift": "hover:-translate-y-0.5 transition-transform duration-150 ease-out",
+    "table_row_hover": "hover:bg-slate-800/60 transition-colors duration-100",
+    "toast_feedback": "Instant Sonner toast upon item add, stage advance, installment payment receipt, or XLSX export."
+  },
+  "accessibility_and_compliance": {
+    "color_contrast": "All text tokens meet APCA and WCAG AA 4.5:1 against their designated dark slate and panel surfaces.",
+    "focus_states": "Visible high-contrast ring-2 ring-orange-500 ring-offset-2 ring-offset-slate-900 on all interactive inputs, buttons, and select triggers.",
+    "data_testids": "Strict kebab-case role-based test identifiers on all inputs, stage stepper buttons, tabs, tables, calculation summaries, and export triggers."
+  },
+  "instructions_to_main_agent": [
+    "1. Application Language: Turkish (Türkçe) UI terminology as specified in the original prompt (e.g. 'Proforma', 'Revizyon', 'Bioklimatik Pergola', 'Sürme Cam', 'Giyotin Cam', 'Sandık Listesi', 'İhraç Kayıtlı Fatura', 'Gümrük Beyannamesi', '5 Taksit Tahsilat').",
+    "2. Template: farm-ts (FastAPI in backend/ + Vite React 19 in frontend/). All API requests use typed helper in frontend/src/lib/api.ts.",
+    "3. Implement full 11-stage workflow state machine in Python backend and React frontend. When a stage is updated, automatically log a record to project activity timeline with timestamp.",
+    "4. Project Items (Kalemler) Table must feature structured fields: Ürün Tipi (Select), Adet (Qty), Genişlik (Width cm), Açılım (Projection cm), Alüminyum RAL Kodu (Select/Input), Cam Kombinasyonu (Select), LED Aydınlatma (Select), Kumaş/Zip (Select), Motor & Kumanda, Tedarikçi Firma, Birim Fiyat, Toplam Tutar.",
+    "5. Accounting & Installment Module: Provide instant calculations for Satış, İskonto (%), Net Satış, Tedarikçi Alış Maliyeti, Gümrük/Transfer Masrafları, Net Kar, Kar Marjı (%), and an interactive 5-installment schedule (Taksit 1..5: Vade, Tutar, Durum, Tahsilat Tarihi, Not) that calculates Toplam Tahsil Edilen vs Kalan Bakiye.",
+    "6. Packing & Logistics Module: Sandık / Paket listesi table with columns for Sandık No, En (cm), Boy (cm), Yükseklik (cm), Adet, Toplam m³ (CBM calculated automatically), Brüt Kilo (Kg), Tedarikçi, Lojistik Firması, Rezervasyon No, Tır/Konteyner No, Yükleme Tarihi.",
+    "7. Daily Report Page (/reports/daily): Date-picker navigation, summary of orders moved between stages on the selected date, financial summary, and an 'Excel (.xlsx) İndir' button powered by backend openpyxl / pandas export.",
+    "8. Seed Data: Create rich realistic Turkish export data in backend/seed.py (at least 8-10 realistic projects across different countries like Almanya, Fransa, İngiltere, Hollanda, BAE, Irak, and domestic Türkiye dealers) with full specs, crates, 5-stage installments, and timelines.",
+    "9. Auth: Clean Turkish login / demo toggle with JWT session cookies so the user can easily switch and test all team features."
+  ]
+}
