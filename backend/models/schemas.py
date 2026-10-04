@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 STAGES = [
     "talep_alindi",
@@ -95,7 +95,8 @@ def compute_muhasebe(m: Muhasebe) -> Muhasebe:
     m.net_kar = round(net_satis - m.alis - m.transfer_ucreti, 2)
     m.kar_yuzdesi = round((m.net_kar / net_satis * 100), 2) if net_satis else 0.0
     m.toplam_tahsilat = round(sum(o.tutar for o in m.odemeler), 2)
-    m.kalan_bakiye = round(net_satis - m.toplam_tahsilat, 2)
+    # Bakiye, müşterinin ödemesi gereken tutar üzerinden: transfer/navlun dahil toplam satış.
+    m.kalan_bakiye = round(m.transfer_dahil_toplam_satis - m.toplam_tahsilat, 2)
     if m.toplam_tahsilat <= 0:
         m.odeme_durumu = "bekliyor"
     elif m.kalan_bakiye > 0.009:
@@ -145,6 +146,12 @@ class Project(ProjectBase):
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
     kalem_sayisi: int = 0
+
+    @model_validator(mode="after")
+    def _recompute(self) -> "Project":
+        """Türev finans alanları her okumada yeniden hesaplanır — kayıt eski olsa bile."""
+        self.muhasebe = compute_muhasebe(self.muhasebe)
+        return self
 
 
 class StageUpdate(BaseModel):
@@ -246,6 +253,21 @@ class CatalogCreate(BaseModel):
 class CatalogUpdate(BaseModel):
     label: str = Field(min_length=1)
     aktif: bool = True
+
+
+class CatalogBulkIds(BaseModel):
+    ids: List[str]
+
+
+class CatalogBulkStatus(BaseModel):
+    ids: List[str]
+    aktif: bool
+
+
+class CatalogBulkResult(BaseModel):
+    silinen: int = 0
+    guncellenen: int = 0
+    atlanan: List[str] = Field(default_factory=list)
 
 
 class CatalogReorder(BaseModel):

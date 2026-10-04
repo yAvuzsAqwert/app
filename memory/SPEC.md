@@ -256,3 +256,23 @@ Eklenenler:
   (eski rol → yeni rol), şifre sıfırlama.
 - İşlem Günlüğü ekranında "Rol / Yetki" tipi olarak filtrelenebilir; kullanıcı ve tarih
   filtreleri de geçerlidir. Proje kolonu bu kayıtlarda "—" görünür.
+
+## Finans hesaplamaları (düzeltme)
+- `compute_muhasebe`: kalan_bakiye = transfer dahil toplam satış − toplam tahsilat (önceden transfer
+  hariç hesaplanıyordu). `Project` modeline `model_validator(mode="after")` eklendi; türev finans
+  alanları her okumada yeniden hesaplanır (liste, detay, pano, bayi kartı, raporlar, PDF'ler).
+- Proforma PDF: satış/iskonto/transfer/genel toplam canlı hesaplanır, satış girilmemişse kalem ara
+  toplamı esas alınır; ayrıca her tahsilat satırı + Toplam Tahsilat + KALAN BAKİYE basılır.
+- Proje dosyası PDF: muhasebe bloğu canlı hesaplanır, "ALINAN ÖDEMELER" bölümü eklendi.
+- Proje detayı: tahsilat kartında canlı toplam/bakiye özeti ve kendi "Tahsilatları Kaydet" butonu;
+  kaydedilmemiş değişiklik uyarısı; refetch artık düzenlenen formu ezmiyor.
+
+## Proje kalemleri CRUD
+- `PUT /api/kalemler/{id}` arayüze bağlandı: kalem satırındaki kalem ikonu formu dolu açar,
+  "Kalemi Güncelle" ile kaydeder; ekle/sil zaten mevcuttu.
+
+## Tanımlar — toplu işlemler
+- `POST /api/catalogs/{tip}/bulk-delete` ve `POST /api/catalogs/{tip}/bulk-status` (aktif/pasif).
+  Kullanımda olan veya son iki aşamadan biri olan tanımlar atlanır, gerekçe listesi döner.
+- UI: her satırda onay kutusu + tümünü seç; seçim varken "Aktif Yap / Pasif Yap / Seçilenleri Sil /
+  Seçimi Temizle" araç çubuğu çıkar.

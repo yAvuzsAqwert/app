@@ -168,6 +168,7 @@ async def list_projects(
     out = []
     for d in docs:
         p = Project(**_aware(d))
+        p.muhasebe = compute_muhasebe(p.muhasebe)
         if not gorunur:
             p.muhasebe = Muhasebe()
         out.append(p)

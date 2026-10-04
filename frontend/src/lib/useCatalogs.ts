@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPut, apiDelete, apiPatch, ApiError } from "@/lib/api";
-import type { CatalogItem } from "@/lib/types";
+import type { CatalogBulkResult, CatalogItem } from "@/lib/types";
 
 export const CATALOG_LABELS: Record<string, string> = {
   asama: "Süreç Aşaması",
@@ -62,6 +62,16 @@ export function useCatalogMutations(tip: string, onDone?: () => void) {
     }),
     remove: useMutation({
       mutationFn: (id: string) => apiDelete(`/catalogs/${tip}/${id}`),
+      onSuccess: done,
+    }),
+    bulkRemove: useMutation({
+      mutationFn: (ids: string[]) =>
+        apiPost<CatalogBulkResult>(`/catalogs/${tip}/bulk-delete`, { ids }),
+      onSuccess: done,
+    }),
+    bulkStatus: useMutation({
+      mutationFn: (v: { ids: string[]; aktif: boolean }) =>
+        apiPost<CatalogBulkResult>(`/catalogs/${tip}/bulk-status`, v),
       onSuccess: done,
     }),
     reorder: useMutation({

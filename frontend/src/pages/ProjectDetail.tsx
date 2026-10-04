@@ -9,6 +9,7 @@ import {
   History,
   Layers,
   Package,
+  Pencil,
   Plus,
   Save,
   Trash2,
@@ -146,6 +147,8 @@ export default function ProjectDetail() {
 
   const [info, setInfo] = useState<ProjectPayload | null>(null);
   const [muh, setMuh] = useState<Muhasebe | null>(null);
+  const [muhDirty, setMuhDirty] = useState(false);
+  const [editItemId, setEditItemId] = useState<string | null>(null);
   const [item, setItem] = useState<ItemPayload>(emptyItem);
   const [crate, setCrate] = useState<CratePayload>(emptyCrate);
   const [itemOpen, setItemOpen] = useState(false);
@@ -160,7 +163,8 @@ export default function ProjectDetail() {
     if (!project) return;
     const { id: _id, proje_kodu: _k, muhasebe, created_at: _c, updated_at: _u, kalem_sayisi: _n, ...rest } = project;
     setInfo(rest);
-    setMuh(muhasebe);
+    setMuh((prev) => (muhDirty && prev ? prev : muhasebe));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
 
   const invalidate = () => {
@@ -297,11 +301,18 @@ export default function ProjectDetail() {
     onError: (e) => toast.error(errText(e)),
   });
 
+  const patchMuh = (patch: Partial<Muhasebe>) => {
+    if (!muh) return;
+    setMuhDirty(true);
+    setMuh({ ...muh, ...patch });
+  };
+
   const saveMuh = useMutation({
     mutationFn: () => apiPut(`/projects/${id}/muhasebe`, muh),
     onSuccess: () => {
+      setMuhDirty(false);
       invalidate();
-      toast.success("Muhasebe kaydedildi");
+      toast.success("Muhasebe ve tahsilatlar kaydedildi, bakiye güncellendi");
     },
     onError: (e) => toast.error(errText(e)),
   });
@@ -313,6 +324,18 @@ export default function ProjectDetail() {
       setItemOpen(false);
       setItem(emptyItem());
       toast.success("Kalem eklendi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const updateItem = useMutation({
+    mutationFn: () => apiPut(`/kalemler/${editItemId}`, item),
+    onSuccess: () => {
+      invalidate();
+      setItemOpen(false);
+      setEditItemId(null);
+      setItem(emptyItem());
+      toast.success("Kalem güncellendi");
     },
     onError: (e) => toast.error(errText(e)),
   });
@@ -362,7 +385,7 @@ export default function ProjectDetail() {
   const netKar = netSatis - (muh?.alis ?? 0) - (muh?.transfer_ucreti ?? 0);
   const karYuzde = netSatis ? (netKar / netSatis) * 100 : 0;
   const tahsilat = (muh?.odemeler ?? []).reduce((s, o) => s + (Number(o.tutar) || 0), 0);
-  const kalan = netSatis - tahsilat;
+  const kalan = toplamSatis - tahsilat;
   const cur = project?.para_birimi ?? "";
   const toplamCbm = (detail?.sandiklar ?? []).reduce((s, c) => s + c.hacim_cbm, 0);
   const toplamKg = (detail?.sandiklar ?? []).reduce((s, c) => s + c.brut_kg, 0);
@@ -506,7 +529,16 @@ export default function ProjectDetail() {
                 Ürün Kalemleri ({detail?.kalemler.length ?? 0}) — Toplam{" "}
                 <span className="font-mono text-primary">{fmtMoney(kalemToplam, cur)}</span>
               </CardTitle>
-              <Dialog open={itemOpen} onOpenChange={setItemOpen}>
+              <Dialog
+                open={itemOpen}
+                onOpenChange={(o: boolean) => {
+                  setItemOpen(o);
+                  if (!o) {
+                    setEditItemId(null);
+                    setItem(emptyItem());
+                  }
+                }}
+              >
                 <DialogTrigger
                   render={
                     <Button size="sm" data-testid="add-item-button" disabled={!can("kalem:yonet")}>
@@ -516,14 +548,15 @@ export default function ProjectDetail() {
                 />
                 <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
                   <DialogHeader>
-                    <DialogTitle>Yeni Ürün Kalemi</DialogTitle>
+                    <DialogTitle>{editItemId ? "Ürün Kalemini Düzenle" : "Yeni Ürün Kalemi"}</DialogTitle>
                   </DialogHeader>
                   <form
                     className="grid gap-4 sm:grid-cols-3"
                     data-testid="add-item-form"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      addItem.mutate();
+                      if (editItemId) updateItem.mutate();
+                      else addItem.mutate();
                     }}
                   >
                     <CatalogSelect
@@ -596,8 +629,18 @@ export default function ProjectDetail() {
                       />
                     </div>
                     <DialogFooter className="sm:col-span-3">
-                      <Button type="submit" disabled={addItem.isPending} data-testid="save-item-button">
-                        {addItem.isPending ? "Ekleniyor…" : "Kalemi Ekle"}
+                      <Button
+                        type="submit"
+                        disabled={addItem.isPending || updateItem.isPending}
+                        data-testid="save-item-button"
+                      >
+                        {editItemId
+                          ? updateItem.isPending
+                            ? "Kaydediliyor…"
+                            : "Kalemi Güncelle"
+                          : addItem.isPending
+                            ? "Ekleniyor…"
+                            : "Kalemi Ekle"}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -659,14 +702,31 @@ export default function ProjectDetail() {
                           {fmtMoney(k.adet * k.birim_fiyat)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => delItem.mutate(k.id)}
-                            data-testid={`delete-item-${k.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <div className="flex justify-end gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              disabled={!can("kalem:yonet")}
+                              onClick={() => {
+                                const { id: _ki, proje_id: _kp, created_at: _kc, ...rest } = k;
+                                setItem(rest as ItemPayload);
+                                setEditItemId(k.id);
+                                setItemOpen(true);
+                              }}
+                              data-testid={`edit-item-${k.id}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              disabled={!can("kalem:yonet")}
+                              onClick={() => delItem.mutate(k.id)}
+                              data-testid={`delete-item-${k.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -702,7 +762,7 @@ export default function ProjectDetail() {
                       type="number"
                       step="0.01"
                       value={String(muh?.[key] ?? 0)}
-                      onChange={(e) => muh && setMuh({ ...muh, [key]: num(e.target.value) })}
+                      onChange={(e) => patchMuh({ [key]: num(e.target.value) } as Partial<Muhasebe>)}
                       data-testid={`muhasebe-${String(key)}-input`}
                     />
                   </div>
@@ -711,7 +771,7 @@ export default function ProjectDetail() {
                   <Label>Fatura Tipi</Label>
                   <Select
                     value={muh?.fatura_tipi ?? "ihrac_kayitli"}
-                    onValueChange={(v: string) => muh && setMuh({ ...muh, fatura_tipi: v })}
+                    onValueChange={(v: string) => patchMuh({ fatura_tipi: v })}
                   >
                     <SelectTrigger data-testid="muhasebe-fatura_tipi-select">
                       <SelectValue>{(v) => FATURA_TIPLERI[v as string] ?? "—"}</SelectValue>
@@ -788,10 +848,11 @@ export default function ProjectDetail() {
                         value={String(o.tutar ?? 0)}
                         onChange={(e) => {
                           if (!muh) return;
-                          const odemeler = muh.odemeler.map((x, xi) =>
-                            xi === i ? { ...x, tutar: num(e.target.value) } : x,
-                          );
-                          setMuh({ ...muh, odemeler });
+                          patchMuh({
+                            odemeler: muh.odemeler.map((x, xi) =>
+                              xi === i ? { ...x, tutar: num(e.target.value) } : x,
+                            ),
+                          });
                         }}
                         data-testid={`installment-amount-${i + 1}`}
                       />
@@ -804,10 +865,11 @@ export default function ProjectDetail() {
                         value={o.tarih ?? ""}
                         onChange={(e) => {
                           if (!muh) return;
-                          const odemeler = muh.odemeler.map((x, xi) =>
-                            xi === i ? { ...x, tarih: e.target.value || null } : x,
-                          );
-                          setMuh({ ...muh, odemeler });
+                          patchMuh({
+                            odemeler: muh.odemeler.map((x, xi) =>
+                              xi === i ? { ...x, tarih: e.target.value || null } : x,
+                            ),
+                          });
                         }}
                         data-testid={`installment-date-${i + 1}`}
                       />
@@ -815,6 +877,47 @@ export default function ProjectDetail() {
                   </div>
                 ))}
                 {!muh && <EmptyState mesaj="Muhasebe verisi yükleniyor." />}
+
+                <div className="space-y-2 rounded-md border border-border bg-secondary/30 p-4">
+                  <div className="flex items-center justify-between" data-testid="pay-total-sales">
+                    <span className="text-sm text-muted-foreground">Transfer Dahil Toplam Satış</span>
+                    <span className="font-mono text-sm font-semibold tabular-nums">
+                      {fmtMoney(toplamSatis, cur)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between" data-testid="pay-collected">
+                    <span className="text-sm text-muted-foreground">Toplam Tahsilat</span>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-emerald-400">
+                      {fmtMoney(tahsilat, cur)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between" data-testid="pay-balance">
+                    <span className="text-sm text-muted-foreground">Kalan Bakiye</span>
+                    <span
+                      className={cn(
+                        "font-mono text-sm font-semibold tabular-nums",
+                        kalan > 0.009 ? "text-amber-400" : "text-emerald-400",
+                      )}
+                    >
+                      {fmtMoney(kalan, cur)}
+                    </span>
+                  </div>
+                </div>
+
+                {muhDirty && (
+                  <p className="text-xs text-amber-400" data-testid="pay-dirty-note">
+                    Kaydedilmemiş değişiklik var — tahsilatların projeye yansıması için kaydedin.
+                  </p>
+                )}
+                <Button
+                  onClick={() => saveMuh.mutate()}
+                  disabled={!can("muhasebe:duzenle") || saveMuh.isPending}
+                  className="w-full"
+                  data-testid="save-payments-button"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {saveMuh.isPending ? "Kaydediliyor…" : "Tahsilatları Kaydet"}
+                </Button>
               </CardContent>
             </Card>
           </div>

@@ -15,6 +15,7 @@ import { PageHeader, EmptyState } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -40,8 +41,23 @@ export default function Settings() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
 
+  const [secili, setSecili] = useState<string[]>([]);
   const rows = useCatalog(tip);
-  const { create, update, remove, reorder } = useCatalogMutations(tip);
+  const { create, update, remove, reorder, bulkRemove, bulkStatus } = useCatalogMutations(tip);
+
+  const toggleSec = (id: string) =>
+    setSecili((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const tumunuSec = () =>
+    setSecili((prev) => (prev.length === rows.length ? [] : rows.map((r) => r.id)));
+  const bulkSonuc = (baslik: string) => ({
+    onSuccess: (res: { silinen: number; guncellenen: number; atlanan: string[] }) => {
+      const adet = res.silinen || res.guncellenen;
+      toast.success(`${baslik}: ${adet} kayıt`);
+      if (res.atlanan.length) toast.error(`Atlanan: ${res.atlanan.join(" · ")}`);
+      setSecili([]);
+    },
+    onError: (e: unknown) => toast.error(catalogError(e)),
+  });
   const qcInvalidateStages = tip === "asama";
   void qcInvalidateStages;
 
@@ -114,7 +130,13 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-1.5">
             <div className="xl:hidden">
-              <Select value={tip} onValueChange={(v: string) => setTip(v)}>
+              <Select
+                value={tip}
+                onValueChange={(v: string) => {
+                  setTip(v);
+                  setSecili([]);
+                }}
+              >
                 <SelectTrigger data-testid="catalog-type-select">
                   <SelectValue>{(v) => CATALOG_LABELS[v as string] ?? "Seç"}</SelectValue>
                 </SelectTrigger>
@@ -165,10 +187,60 @@ export default function Settings() {
               </Button>
             </div>
 
+            {secili.length > 0 && (
+              <div
+                className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-3"
+                data-testid="catalog-bulk-bar"
+              >
+                <Badge variant="outline" className="font-mono" data-testid="catalog-selected-count">
+                  {secili.length} seçili
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => bulkStatus.mutate({ ids: secili, aktif: true }, bulkSonuc("Aktif edildi"))}
+                  data-testid="catalog-bulk-activate"
+                >
+                  <Check className="mr-2 h-4 w-4" /> Aktif Yap
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => bulkStatus.mutate({ ids: secili, aktif: false }, bulkSonuc("Pasife alındı"))}
+                  data-testid="catalog-bulk-deactivate"
+                >
+                  <X className="mr-2 h-4 w-4" /> Pasif Yap
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => bulkRemove.mutate(secili, bulkSonuc("Silindi"))}
+                  data-testid="catalog-bulk-delete"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Seçilenleri Sil
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSecili([])}
+                  data-testid="catalog-bulk-clear"
+                >
+                  Seçimi Temizle
+                </Button>
+              </div>
+            )}
+
             {rows.length ? (
               <Table data-testid="catalog-table">
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={rows.length > 0 && secili.length === rows.length}
+                        onCheckedChange={tumunuSec}
+                        data-testid="catalog-select-all"
+                      />
+                    </TableHead>
                     <TableHead className="w-12">Sıra</TableHead>
                     <TableHead>Ad</TableHead>
                     <TableHead>Durum</TableHead>
@@ -183,6 +255,13 @@ export default function Settings() {
                       className="transition-colors duration-100 hover:bg-secondary/50"
                       data-testid={`catalog-row-${row.id}`}
                     >
+                      <TableCell>
+                        <Checkbox
+                          checked={secili.includes(row.id)}
+                          onCheckedChange={() => toggleSec(row.id)}
+                          data-testid={`catalog-select-${row.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{index + 1}</TableCell>
                       <TableCell>
                         {editId === row.id ? (

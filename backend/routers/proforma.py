@@ -313,20 +313,41 @@ async def _build_proforma_pdf(project: dict, items: list[dict], labels: dict) ->
     flow += [table, Spacer(1, 5 * mm)]
 
     # ---- totals (accounting is the source of truth; items are the breakdown)
-    m = project.get("muhasebe", {}) or {}
-    satis = float(m.get("satis") or 0) or ara_toplam
-    iskonto = float(m.get("iskonto_tutari") or 0)
-    transfer = float(m.get("transfer_ucreti") or 0)
-    genel = satis - iskonto + transfer
+    from models.schemas import Muhasebe, compute_muhasebe
+
+    raw = dict(project.get("muhasebe", {}) or {})
+    # Satış girilmemişse kalem ara toplamı esas alınır; tüm türevler anlık hesaplanır.
+    if not float(raw.get("satis") or 0):
+        raw["satis"] = ara_toplam
+    m = compute_muhasebe(Muhasebe(**raw))
+    odeme_satirlari = [
+        [
+            f"{i}. Ödeme" + (f" ({o.tarih})" if o.tarih else ""),
+            _money(o.tutar, cur),
+        ]
+        for i, o in enumerate(m.odemeler, start=1)
+        if o.tutar > 0
+    ]
     total_rows = [
         ["Kalemler Ara Toplamı", _money(ara_toplam, cur)],
-        ["Satış Tutarı", _money(satis, cur)],
-        ["İskonto", f"- {_money(iskonto, cur)}"],
-        ["Transfer / Navlun", _money(transfer, cur)],
-        ["GENEL TOPLAM", _money(genel, cur)],
+        ["Satış Tutarı", _money(m.satis, cur)],
+        ["İskonto", f"- {_money(m.iskonto_tutari, cur)}"],
+        ["Transfer / Navlun", _money(m.transfer_ucreti, cur)],
+        ["GENEL TOPLAM", _money(m.transfer_dahil_toplam_satis, cur)],
+        *odeme_satirlari,
+        ["Toplam Tahsilat", _money(m.toplam_tahsilat, cur)],
+        ["KALAN BAKİYE", _money(m.kalan_bakiye, cur)],
     ]
     totals = Table(
-        [[Paragraph(f"<b>{a}</b>" if a == "GENEL TOPLAM" else a, body), Paragraph(f"<b>{b}</b>", h_right)] for a, b in total_rows],
+        [
+            [
+                Paragraph(
+                    f"<b>{a}</b>" if a in ("GENEL TOPLAM", "KALAN BAKİYE") else a, body
+                ),
+                Paragraph(f"<b>{b}</b>", h_right),
+            ]
+            for a, b in total_rows
+        ],
         colWidths=[60 * mm, 42 * mm],
         hAlign="RIGHT",
     )
@@ -334,6 +355,8 @@ async def _build_proforma_pdf(project: dict, items: list[dict], labels: dict) ->
         TableStyle(
             [
                 ("LINEABOVE", (0, -1), (-1, -1), 1.2, ACCENT),
+                ("LINEABOVE", (0, 4), (-1, 4), 1.2, ACCENT),
+                ("BACKGROUND", (0, 4), (-1, 4), colors.HexColor("#FFF7ED")),
                 ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FFF7ED")),
                 ("TOPPADDING", (0, 0), (-1, -1), 4),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 4),

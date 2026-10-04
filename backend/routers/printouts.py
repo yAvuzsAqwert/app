@@ -105,7 +105,9 @@ async def project_dossier(proje_id: str, user: dict = Depends(require("proje:gor
     )
 
     cur = project.get("para_birimi", "")
-    muh = project.get("muhasebe", {}) or {}
+    from models.schemas import Muhasebe, compute_muhasebe
+
+    muh = compute_muhasebe(Muhasebe(**(project.get("muhasebe", {}) or {}))).model_dump()
     flow: list = []
 
     # Başlık
@@ -242,6 +244,22 @@ async def project_dossier(proje_id: str, user: dict = Depends(require("proje:gor
                     ("Toplam Tahsilat", _money(muh.get("toplam_tahsilat", 0), cur)),
                     ("Kalan Bakiye", _money(muh.get("kalan_bakiye", 0), cur)),
                 ],
+                body,
+                small,
+            ),
+            Spacer(1, 3 * mm),
+            _section("ALINAN ÖDEMELER", head),
+            Spacer(1, 1.5 * mm),
+            _kv_table(
+                [
+                    (
+                        f"{i}. Ödeme" + (f" ({o.get('tarih')})" if o.get("tarih") else ""),
+                        _money(o.get("tutar", 0), cur),
+                    )
+                    for i, o in enumerate(muh.get("odemeler", []), start=1)
+                    if (o.get("tutar") or 0) > 0
+                ]
+                or [("Kayıtlı tahsilat yok", "—")],
                 body,
                 small,
             ),

@@ -383,3 +383,9 @@ export interface TrashItem {
   kalem_adet: number;
   sandik_adet: number;
 }
+
+export interface CatalogBulkResult {
+  silinen: number;
+  guncellenen: number;
+  atlanan: string[];
+}
