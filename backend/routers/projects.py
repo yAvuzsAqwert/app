@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lib.auth import current_user
+from lib.catalog import stage_keys, stage_labels
 from lib.dates import today_iso
 from lib.db import db
 from models.schemas import (
@@ -157,7 +158,7 @@ async def list_projects(
 
 @router.post("/projects", response_model=Project)
 async def create_project(payload: ProjectCreate, user: dict = Depends(current_user)):
-    if payload.durum not in STAGES:
+    if payload.durum not in await stage_keys():
         raise HTTPException(status_code=400, detail="Geçersiz aşama")
     data = payload.model_dump(exclude={"proje_kodu"})
     if not data.get("proje_tarihi"):
@@ -193,17 +194,18 @@ async def update_project(
     proje_id: str, payload: ProjectUpdate, user: dict = Depends(current_user)
 ):
     doc = await _get_project(proje_id)
-    if payload.durum not in STAGES:
+    if payload.durum not in await stage_keys():
         raise HTTPException(status_code=400, detail="Geçersiz aşama")
     data = payload.model_dump()
     data["updated_at"] = now_utc()
     await db.projects.update_one({"id": proje_id}, {"$set": data})
     if doc["durum"] != payload.durum:
+        labels = await stage_labels()
         await _log(
             proje_id,
             doc["proje_kodu"],
             "asama",
-            f"Aşama {STAGE_LABELS.get(doc['durum'], doc['durum'])} → {STAGE_LABELS.get(payload.durum, payload.durum)}",
+            f"Aşama {labels.get(doc['durum'], doc['durum'])} → {labels.get(payload.durum, payload.durum)}",
             user,
             eski_durum=doc["durum"],
             yeni_durum=payload.durum,
@@ -216,7 +218,8 @@ async def update_project(
 @router.patch("/projects/{proje_id}/stage", response_model=Project)
 async def update_stage(proje_id: str, payload: StageUpdate, user: dict = Depends(current_user)):
     doc = await _get_project(proje_id)
-    if payload.durum not in STAGES:
+    keys = await stage_keys()
+    if payload.durum not in keys:
         raise HTTPException(status_code=400, detail="Geçersiz aşama")
     patch: dict = {"durum": payload.durum, "updated_at": now_utc()}
     # stage transitions stamp their own milestone date, server anchored
@@ -226,10 +229,12 @@ async def update_stage(proje_id: str, payload: StageUpdate, user: dict = Depends
         patch["tedarikci_onay_tarihi"] = today_iso()
     if payload.durum == "yuklendi_sevk" and not doc.get("sevk_tarihi"):
         patch["sevk_tarihi"] = today_iso()
-    if payload.durum == "tamamlandi":
+    # son aşama (listenin sonu) projeyi arşive alır
+    if payload.durum == keys[-1]:
         patch["arsiv"] = True
     await db.projects.update_one({"id": proje_id}, {"$set": patch})
-    mesaj = f"Aşama {STAGE_LABELS.get(doc['durum'], doc['durum'])} → {STAGE_LABELS.get(payload.durum, payload.durum)}"
+    labels = await stage_labels()
+    mesaj = f"Aşama {labels.get(doc['durum'], doc['durum'])} → {labels.get(payload.durum, payload.durum)}"
     if payload.not_:
         mesaj += f" — {payload.not_}"
     await _log(

@@ -6,6 +6,7 @@ import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Dealers from "@/pages/Dealers";
+import Settings from "@/pages/Settings";
 import DailyReport from "@/pages/DailyReport";
 
 // One <Route> per page in src/pages; BrowserRouter already wraps this in main.tsx.
@@ -44,6 +45,14 @@ export default function App() {
           element={
             <Protected>
               <Dealers />
+            </Protected>
+          }
+        />
+        <Route
+          path="/tanimlar"
+          element={
+            <Protected>
+              <Settings />
             </Protected>
           }
         />

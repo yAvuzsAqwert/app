@@ -60,3 +60,24 @@ farklı aşamalarda, kalemler + sandıklar + 5 taksit ödeme + aktivite kayıtla
 
 ## Login
 memory/test_credentials.md içinde.
+
+## Sürüm 3 — Tanımlar, Revizyon, Ekstre, Etiket (güncel)
+- **Tanım katalogları** (`lib/catalog.py`, `routers/catalogs.py`, `/tanimlar` → `pages/Settings.tsx`):
+  15 liste tipi (surec_asamasi, urun, yapi_rengi, panel_rengi, cam_kombinasyonu, cam_rengi,
+  kumas, aydinlatma, montaj_tipi, firma, musteri, tedarikci, lojistik_firmasi, para_birimi,
+  fatura_tipi). Tam CRUD + sıra değiştirme (`PATCH /api/catalogs/{tip}/reorder`) + aktif/pasif.
+  Kullanımda olan kayıt silinemez (409 + uyarı). Değerler `Projeler.xlsx` gerçek verisinden
+  seed edilir (90 ürün, 26 yapı rengi, 16 tedarikçi, 34 firma, 20 müşteri vb.).
+  Proje formları ve aşama doğrulaması artık bu listelerden dinamik beslenir.
+- **Proforma revizyon geçmişi** (`routers/revisions.py`): her versiyon kalem + tutar anlık görüntüsü.
+  Proforma PDF indirildiğinde otomatik (`kaynak=pdf`), "Revizyon Kaydet" ile notlu manuel kayıt.
+  Proje detayında versiyon listesi ve iki versiyonun yan yana karşılaştırması.
+  `GET/POST /api/projects/{id}/revizyonlar`, `DELETE /api/revizyonlar/{id}`.
+- **Bayi ekstresi** (`GET /api/reports/dealer-statement?anahtar=firma|ulke`): tek Excel dosyası,
+  5 sayfa — Bayi Ozeti, Projeler, Tahsilat Dokumu, Proje Kalemleri, Sandik Listesi.
+  Bayi Kartları sayfasındaki "Ekstre (Excel)" butonundan indirilir. Dosya adı ASCII-safe.
+- **Sandık etiketleri** (`routers/labels.py`, `GET /api/projects/{id}/sandik-etiketleri`):
+  A4'e 2×2 = 4 etiket; sandık no, proje, müşteri, ülke, içerik, ölçü/hacim/brüt kg,
+  tedarikçi, aşama, lojistik/rezervasyon/konteyner bilgisi.
+- **Gecikme bildirimi**: e-posta kurulmadı (kullanıcı kararı) — yalnızca uygulama içi
+  7 günlük uyarı paneli (`/api/alerts`, panel + proje listesi göstergeleri).

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, ChevronDown, Search, Globe2 } from "lucide-react";
+import { Building2, ChevronDown, Search, Globe2, FileSpreadsheet } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import type { DealerCard } from "@/lib/types";
 import { fmtDate, fmtMoney } from "@/lib/constants";
@@ -112,6 +112,19 @@ export default function Dealers() {
                       / {d.arsiv_adet} arşiv) · Son: {fmtDate(d.son_proje_tarihi)}
                     </p>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = `/api/reports/dealer-statement?anahtar=${encodeURIComponent(d.anahtar)}`;
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.click();
+                    }}
+                    data-testid={`dealer-statement-${d.firma}`}
+                  >
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Ekstre (Excel)
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

@@ -18,6 +18,8 @@ import {
   Paperclip,
   Upload,
   Download,
+  Tags,
+  GitCompare,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api";
 import type {
@@ -25,6 +27,7 @@ import type {
   DocumentMeta,
   ItemPayload,
   Muhasebe,
+  ProformaVersion,
   ProjectDetail as ProjectDetailT,
   ProjectPayload,
 } from "@/lib/types";
@@ -76,6 +79,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useOptions } from "@/lib/useCatalogs";
 
 function errText(err: unknown) {
   if (err instanceof ApiError) {
@@ -132,6 +136,8 @@ export default function ProjectDetail() {
 
   const detail = isError ? null : data;
   const project = detail?.project;
+  const stageList = useOptions("asama");
+  const urunler = useOptions("urun");
 
   const [info, setInfo] = useState<ProjectPayload | null>(null);
   const [muh, setMuh] = useState<Muhasebe | null>(null);
@@ -143,6 +149,7 @@ export default function ProjectDetail() {
   const [dosya, setDosya] = useState<File | null>(null);
   const [kategori, setKategori] = useState("cizim");
   const [docAciklama, setDocAciklama] = useState("");
+  const [revNote, setRevNote] = useState("");
 
   useEffect(() => {
     if (!project) return;
@@ -202,6 +209,42 @@ export default function ProjectDetail() {
     onError: (e) => toast.error(errText(e)),
   });
 
+  const crateLabels = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/projects/${id}/sandik-etiketleri`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error((err as { detail?: string } | null)?.detail ?? "Etiket oluşturulamadı");
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sandik-etiket-${project?.proje_kodu ?? id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => toast.success("Sandık etiketleri indirildi"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const { data: revisions } = useQuery({
+    queryKey: ["revisions", id],
+    queryFn: () => apiGet<ProformaVersion[]>(`/projects/${id}/revizyonlar`),
+    retry: false,
+    enabled: !!id,
+  });
+
+  const saveRevision = useMutation({
+    mutationFn: () => apiPost(`/projects/${id}/revizyonlar`, { aciklama: revNote }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["revisions", id] });
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      setRevNote("");
+      toast.success("Revizyon kaydedildi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
   const proforma = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/projects/${id}/proforma`);
@@ -214,7 +257,11 @@ export default function ProjectDetail() {
       a.click();
       URL.revokeObjectURL(url);
     },
-    onSuccess: () => toast.success("Proforma PDF indirildi"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["revisions", id] });
+      qc.invalidateQueries({ queryKey: ["project", id] });
+      toast.success("Proforma PDF indirildi — Rev. kaydedildi");
+    },
     onError: () => toast.error("Proforma oluşturulamadı"),
   });
 
@@ -330,7 +377,7 @@ export default function ProjectDetail() {
     );
   }
 
-  const activeIdx = stageIndex(project?.durum ?? "");
+  const activeIdx = stageList.findIndex((s) => s.deger === (project?.durum ?? ""));
 
   return (
     <div data-testid="project-detail-page">
@@ -369,16 +416,16 @@ export default function ProjectDetail() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {STAGES.map((s, i) => {
+            {stageList.map((s, i) => {
               const done = i < activeIdx;
               const active = i === activeIdx;
               return (
                 <button
-                  key={s.key}
+                  key={s.deger}
                   type="button"
                   disabled={stage.isPending}
-                  onClick={() => stage.mutate(s.key)}
-                  data-testid={`stage-step-${s.key}`}
+                  onClick={() => stage.mutate(s.deger)}
+                  data-testid={`stage-step-${s.deger}`}
                   className={cn(
                     "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-transform duration-150 hover:-translate-y-0.5",
                     active && "animate-stage-pulse border-primary bg-primary/20 text-primary font-semibold",
@@ -456,7 +503,10 @@ export default function ProjectDetail() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {URUN_TIPLERI.map((u) => (
+                          {(urunler.length
+                            ? urunler.map((u) => u.label)
+                            : URUN_TIPLERI
+                          ).map((u) => (
                             <SelectItem key={u} value={u}>
                               {u}
                             </SelectItem>
@@ -741,10 +791,20 @@ export default function ProjectDetail() {
         <TabsContent value="lojistik">
           <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
             <Card data-testid="crates-card">
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base">
                   Sandık / Paket Listesi — {toplamCbm.toFixed(3)} m³ · {toplamKg.toFixed(0)} kg
                 </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => crateLabels.mutate()}
+                  disabled={crateLabels.isPending}
+                  data-testid="crate-labels-button"
+                >
+                  <Tags className="mr-2 h-4 w-4" />
+                  {crateLabels.isPending ? "Hazırlanıyor…" : "Sandık Etiketi (A4/4)"}
+                </Button>
                 <Dialog open={crateOpen} onOpenChange={setCrateOpen}>
                   <DialogTrigger
                     render={
@@ -1190,6 +1250,73 @@ export default function ProjectDetail() {
                   >
                     {addNote.isPending ? "Ekleniyor…" : "Notu Kaydet"}
                   </Button>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="revisions-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <GitCompare className="h-4 w-4 text-primary" /> Proforma Revizyonları (
+                    {revisions?.length ?? 0})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Input
+                    placeholder="Revizyon notu (ör. cam rengi değişti)"
+                    value={revNote}
+                    onChange={(e) => setRevNote(e.target.value)}
+                    data-testid="revision-note-input"
+                  />
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={saveRevision.isPending}
+                    onClick={() => saveRevision.mutate()}
+                    data-testid="save-revision-button"
+                  >
+                    {saveRevision.isPending ? "Kaydediliyor…" : "Revizyon Kaydet"}
+                  </Button>
+                  {revisions?.length ? (
+                    <div className="space-y-2">
+                      {revisions.map((r, i) => {
+                        const prev = revisions[i + 1];
+                        const fark = prev ? r.toplam - prev.toplam : 0;
+                        return (
+                          <div
+                            key={r.id}
+                            className="rounded-md border border-border bg-secondary/30 p-2.5"
+                            data-testid={`revision-row-${r.versiyon}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge variant="secondary" className="font-mono text-[10px]">
+                                Rev.{r.versiyon} {r.kaynak === "pdf" ? "· PDF" : ""}
+                              </Badge>
+                              <span className="font-mono text-xs font-semibold">
+                                {fmtMoney(r.toplam, r.para_birimi)}
+                              </span>
+                            </div>
+                            {!!prev && (
+                              <p
+                                className={`mt-1 font-mono text-[11px] ${fark > 0 ? "text-emerald-400" : fark < 0 ? "text-destructive" : "text-muted-foreground"}`}
+                              >
+                                Rev.{prev.versiyon} → Rev.{r.versiyon}:{" "}
+                                {fark > 0 ? "+" : ""}
+                                {fmtMoney(fark, r.para_birimi)} · kalem {prev.kalem_sayisi} →{" "}
+                                {r.kalem_sayisi}
+                              </p>
+                            )}
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {r.aciklama || "—"} · {r.olusturan} · {fmtDateTime(r.created_at)}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Henüz revizyon yok. Proforma PDF aldığınızda otomatik kaydedilir.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 

@@ -1,8 +1,10 @@
 import { stageOf } from "@/lib/constants";
+import { useCatalog } from "@/lib/useCatalogs";
 import { cn } from "@/lib/utils";
 
 export function StageBadge({ durum, className }: { durum: string; className?: string }) {
   const stage = stageOf(durum);
+  const dinamik = useCatalog("asama").find((s) => s.deger === durum);
   return (
     <span
       data-testid={`stage-badge-${durum}`}
@@ -12,7 +14,7 @@ export function StageBadge({ durum, className }: { durum: string; className?: st
         className,
       )}
     >
-      {stage.label}
+      {dinamik?.label ?? stage.label}
     </span>
   );
 }

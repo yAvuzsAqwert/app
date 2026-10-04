@@ -225,6 +225,57 @@ class NoteInput(BaseModel):
     mesaj: str = Field(min_length=1)
 
 
+# ---------- catalogs (dinamik tanım listeleri) ----------
+class CatalogItem(BaseModel):
+    id: str = Field(default_factory=_uid)
+    tip: str
+    deger: str  # kayıtlarda saklanan değer / aşama anahtarı
+    label: str  # ekranda görünen ad
+    sira: int = 0
+    aktif: bool = True
+    sistem: bool = False  # çekirdek aşama — silinemez, adı değiştirilebilir
+    kullanim: int = 0  # kaç kayıtta kullanıldığı (salt okunur)
+
+
+class CatalogCreate(BaseModel):
+    label: str = Field(min_length=1)
+    deger: Optional[str] = None
+
+
+class CatalogUpdate(BaseModel):
+    label: str = Field(min_length=1)
+    aktif: bool = True
+
+
+class CatalogReorder(BaseModel):
+    sirali_idler: List[str]
+
+
+# ---------- proforma revizyonları ----------
+class ProformaVersion(BaseModel):
+    id: str = Field(default_factory=_uid)
+    proje_id: str
+    proje_kodu: str = ""
+    versiyon: int = 1
+    kaynak: str = "manuel"  # manuel | pdf
+    aciklama: str = ""
+    olusturan: str = ""
+    # anlık görüntü
+    durum: str = ""
+    para_birimi: str = ""
+    satis: float = 0.0
+    iskonto_tutari: float = 0.0
+    transfer_ucreti: float = 0.0
+    toplam: float = 0.0
+    kalem_sayisi: int = 0
+    kalemler: List[dict] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=now_utc)
+
+
+class RevisionInput(BaseModel):
+    aciklama: str = ""
+
+
 class ProjectDetail(BaseModel):
     project: Project
     kalemler: List[ProjectItem]

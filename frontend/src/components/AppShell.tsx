@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FolderKanban, CalendarRange, LogOut, Sun, Search, Building2 } from "lucide-react";
+import { LayoutDashboard, FolderKanban, CalendarRange, LogOut, Sun, Search, Building2, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { endSession } from "@/lib/session";
 import { useAuth } from "@/lib/useAuth";
@@ -10,6 +10,7 @@ const NAV = [
   { to: "/projeler", label: "Projeler", icon: FolderKanban, testid: "nav-projects" },
   { to: "/bayiler", label: "Bayi Kartları", icon: Building2, testid: "nav-dealers" },
   { to: "/rapor", label: "Günlük Rapor", icon: CalendarRange, testid: "nav-report" },
+  { to: "/tanimlar", label: "Tanımlar", icon: SlidersHorizontal, testid: "nav-settings" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

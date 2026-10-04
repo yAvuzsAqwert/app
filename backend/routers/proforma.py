@@ -23,8 +23,10 @@ from reportlab.platypus import (
 )
 
 from lib.auth import current_user
+from lib.catalog import stage_labels
 from lib.db import db
 from models.schemas import STAGE_LABELS
+from routers.revisions import snapshot
 
 router = APIRouter(tags=["proforma"])
 
@@ -69,6 +71,9 @@ async def proforma_pdf(proje_id: str, user: dict = Depends(current_user)):
     if not project:
         raise HTTPException(status_code=404, detail="Proje bulunamadı")
     items = await db.project_items.find({"proje_id": proje_id}).sort("created_at", 1).to_list(500)
+    # PDF her alındığında proformanın o anki hali revizyon olarak saklanır
+    await snapshot(proje_id, "pdf", "Proforma PDF indirildi", user)
+    labels = await stage_labels()
 
     font, bold = _register_fonts()
     cur = project.get("para_birimi", "")
@@ -134,7 +139,7 @@ async def proforma_pdf(proje_id: str, user: dict = Depends(current_user)):
                     f"<font size=7.5 color='#64748B'><b>PROJE BİLGİSİ</b></font><br/>"
                     f"<b>{project.get('proje_adi') or '-'}</b><br/>"
                     f"Montaj: {project.get('montaj_tipi') or '-'}<br/>"
-                    f"Aşama: {STAGE_LABELS.get(project.get('durum', ''), '-')}",
+                    f"Aşama: {labels.get(project.get('durum', ''), '-')}",
                     body,
                 ),
                 Paragraph(

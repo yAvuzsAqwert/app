@@ -127,6 +127,36 @@ export interface StageCount {
   tutar: number;
 }
 
+export interface CatalogItem {
+  id: string;
+  tip: string;
+  deger: string;
+  label: string;
+  sira: number;
+  aktif: boolean;
+  sistem: boolean;
+  kullanim: number;
+}
+
+export interface ProformaVersion {
+  id: string;
+  proje_id: string;
+  proje_kodu: string;
+  versiyon: number;
+  kaynak: string;
+  aciklama: string;
+  olusturan: string;
+  durum: string;
+  para_birimi: string;
+  satis: number;
+  iskonto_tutari: number;
+  transfer_ucreti: number;
+  toplam: number;
+  kalem_sayisi: number;
+  kalemler: Record<string, unknown>[];
+  created_at: string;
+}
+
 export interface DeadlineAlert {
   proje_id: string;
   proje_kodu: string;

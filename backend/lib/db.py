@@ -41,6 +41,15 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("id", ASCENDING)], name="id", unique=True),
         IndexModel([("proje_id", ASCENDING), ("created_at", ASCENDING)], name="proje_created"),
     ],
+    "catalogs": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("tip", ASCENDING), ("deger", ASCENDING)], name="tip_deger", unique=True),
+        IndexModel([("tip", ASCENDING), ("sira", ASCENDING)], name="tip_sira"),
+    ],
+    "proforma_versions": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("proje_id", ASCENDING), ("versiyon", DESCENDING)], name="proje_versiyon"),
+    ],
     "documents": [
         IndexModel([("id", ASCENDING)], name="id", unique=True),
         IndexModel([("proje_id", ASCENDING), ("created_at", DESCENDING)], name="proje_created_desc"),
