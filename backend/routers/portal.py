@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from lib.auth import current_user, hash_password, verify_password
 from lib.catalog import stage_labels
 from lib.permissions import require
-from lib.db import db
+from lib.db import db, get_db
 from models.schemas import (
     DealerAccount,
     DealerAccountCreate,
@@ -219,7 +219,7 @@ async def portal_download(doc_id: str, account: dict = Depends(current_dealer)):
     if meta["proje_id"] not in own_ids:
         # Başka bayinin evrakının varlığını sızdırmamak için 404
         raise HTTPException(status_code=404, detail="Evrak bulunamadı")
-    bucket = AsyncIOMotorGridFSBucket(db, bucket_name="evraklar")
+    bucket = AsyncIOMotorGridFSBucket(get_db(), bucket_name="evraklar")
     try:
         stream = await bucket.open_download_stream(ObjectId(meta["file_id"]))
     except Exception as exc:

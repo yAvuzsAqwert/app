@@ -10,10 +10,53 @@ from pymongo import ASCENDING, DESCENDING, IndexModel
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ["DB_NAME"]]
+# Platform ortam değişkeni farklı isimle gelebilir; ilk dolu olan kullanılır.
+mongo_url = next(
+    (
+        os.environ[key]
+        for key in ("MONGO_URL", "MONGODB_URI", "MONGO_URI", "DATABASE_URL")
+        if os.environ.get(key)
+    ),
+    "",
+)
+if not mongo_url:
+    raise RuntimeError("MONGO_URL ortam değişkeni tanımlı değil")
+DB_NAME = os.environ.get("DB_NAME") or os.environ.get("MONGO_DB_NAME") or "app"
 
+# Motor istemcisi import sırasında DEĞİL, ilk kullanımda (servis eden event loop içinde)
+# oluşturulur. Aksi halde --reload olmayan üretim ortamında istemci farklı bir event
+# loop'a bağlanır ve her sorgu "attached to a different loop" hatası verir.
+_client: AsyncIOMotorClient | None = None
+
+
+def get_client() -> AsyncIOMotorClient:
+    global _client
+    if _client is None:
+        _client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+    return _client
+
+
+def get_db():
+    return get_client()[DB_NAME]
+
+
+class _DBProxy:
+    """`from lib.db import db` çağrı yerleri bozulmadan tembel bağlanmayı sağlar."""
+
+    def __getattr__(self, name):
+        return getattr(get_db(), name)
+
+    def __getitem__(self, key):
+        return get_db()[key]
+
+
+class _ClientProxy:
+    def __getattr__(self, name):
+        return getattr(get_client(), name)
+
+
+client = _ClientProxy()
+db = _DBProxy()
 logger = logging.getLogger(__name__)
 
 # One entry per collection: every field a route filters, sorts, or dedupes on. Applied by ensure_indexes() at startup.
@@ -26,6 +69,11 @@ INDEXES: dict[str, list[IndexModel]] = {
     "sessions": [
         IndexModel([("token", ASCENDING)], name="token", unique=True),
         IndexModel([("created_at", ASCENDING)], name="ttl", expireAfterSeconds=60 * 60 * 24 * 30),
+    ],
+    "login_attempts": [
+        IndexModel([("key", ASCENDING)], name="key"),
+        IndexModel([("email", ASCENDING)], name="email"),
+        IndexModel([("created_at", ASCENDING)], name="ttl", expireAfterSeconds=60 * 60),
     ],
     "dealer_accounts": [
         IndexModel([("id", ASCENDING)], name="id", unique=True),

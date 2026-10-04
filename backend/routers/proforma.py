@@ -30,7 +30,7 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from lib.auth import current_user
 from lib.catalog import stage_labels
-from lib.db import db
+from lib.db import db, get_db
 from lib.permissions import require
 from models.schemas import STAGE_LABELS
 from routers.revisions import snapshot
@@ -38,7 +38,9 @@ from routers.revisions import snapshot
 router = APIRouter(tags=["proforma"])
 
 COMPANY = os.environ.get("COMPANY_NAME", "DIAGONAL")
-FONT_DIR = "/usr/share/fonts/truetype/liberation"
+# Türkçe glif desteği: font depoya gömülüdür (üretim imajında sistem fontu olmayabilir).
+BUNDLED_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "fonts")
+FONT_DIRS = [BUNDLED_FONT_DIR, "/usr/share/fonts/truetype/liberation"]
 ACCENT = colors.HexColor("#F97316")
 DARK = colors.HexColor("#0F172A")
 MUTED = colors.HexColor("#64748B")
@@ -47,7 +49,9 @@ LINE = colors.HexColor("#CBD5E1")
 _FONTS_READY = False
 
 IMAGE_EXT = {"png", "jpg", "jpeg", "webp", "gif"}
-bucket = AsyncIOMotorGridFSBucket(db, bucket_name="evraklar")
+def _bucket() -> AsyncIOMotorGridFSBucket:
+    """Her istekte servis eden event loop içinde oluşturulur."""
+    return AsyncIOMotorGridFSBucket(get_db(), bucket_name="evraklar")
 
 
 async def _drawing_flowables(proje_id: str, body, small) -> list:
@@ -64,7 +68,7 @@ async def _drawing_flowables(proje_id: str, body, small) -> list:
         if ext not in IMAGE_EXT:
             continue
         try:
-            stream = await bucket.open_download_stream(ObjectId(meta["file_id"]))
+            stream = await _bucket().open_download_stream(ObjectId(meta["file_id"]))
             data = await stream.read()
             reader = ImageReader(io.BytesIO(data))
             iw, ih = reader.getSize()
@@ -110,14 +114,22 @@ async def _drawing_flowables(proje_id: str, body, small) -> list:
 
 
 def _register_fonts() -> tuple[str, str]:
-    """Liberation Sans covers Turkish glyphs; Helvetica does not."""
+    """Türkçe karakterler (ı, ş, ğ, İ, Ö, Ç…) için TTF şart — Helvetica bunları basamaz."""
     global _FONTS_READY
-    regular, bold = f"{FONT_DIR}/LiberationSans-Regular.ttf", f"{FONT_DIR}/LiberationSans-Bold.ttf"
-    if not _FONTS_READY and os.path.exists(regular) and os.path.exists(bold):
-        pdfmetrics.registerFont(TTFont("LibSans", regular))
-        pdfmetrics.registerFont(TTFont("LibSans-Bold", bold))
-        _FONTS_READY = True
-    return ("LibSans", "LibSans-Bold") if _FONTS_READY else ("Helvetica", "Helvetica-Bold")
+    if _FONTS_READY:
+        return ("LibSans", "LibSans-Bold")
+    for directory in FONT_DIRS:
+        regular = os.path.join(directory, "LiberationSans-Regular.ttf")
+        bold = os.path.join(directory, "LiberationSans-Bold.ttf")
+        if os.path.exists(regular) and os.path.exists(bold):
+            pdfmetrics.registerFont(TTFont("LibSans", regular))
+            pdfmetrics.registerFont(TTFont("LibSans-Bold", bold))
+            _FONTS_READY = True
+            return ("LibSans", "LibSans-Bold")
+    raise HTTPException(
+        status_code=500,
+        detail="PDF fontu bulunamadı (assets/fonts/LiberationSans-*.ttf) — Türkçe karakterler basılamaz",
+    )
 
 
 def _money(value: float, currency: str = "") -> str:

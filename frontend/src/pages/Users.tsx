@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ShieldCheck, UserPlus, Trash2, Users as UsersIcon, Save } from "lucide-react";
+import { ShieldCheck, UserPlus, Trash2, Users as UsersIcon, Save, KeyRound } from "lucide-react";
 import { apiGet, apiPost, apiPut, apiDelete, ApiError } from "@/lib/api";
 import type { Role, UserAccount } from "@/lib/types";
 import { fmtDate } from "@/lib/constants";
@@ -12,6 +12,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -41,6 +48,8 @@ export default function Users() {
   const [secili, setSecili] = useState("satis");
   const [taslak, setTaslak] = useState<string[] | null>(null);
   const [yeni, setYeni] = useState({ email: "", sifre: "", ad_soyad: "", rol: "satis" });
+  const [resetFor, setResetFor] = useState<UserAccount | null>(null);
+  const [yeniSifre, setYeniSifre] = useState("");
 
   const { data: perms } = useQuery({
     queryKey: ["permission-catalog"],
@@ -93,13 +102,22 @@ export default function Users() {
     onError: (e) => toast.error(errText(e, "Rol güncellenemedi")),
   });
 
-  const removeUser = useMutation({
-    mutationFn: (id: string) => apiDelete(`/users/${id}`),
+  const removeUser = useMutation({    mutationFn: (id: string) => apiDelete(`/users/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["users"] });
       toast.success("Kullanıcı silindi");
     },
     onError: (e) => toast.error(errText(e, "Kullanıcı silinemedi")),
+  });
+
+  const resetPassword = useMutation({
+    mutationFn: () => apiPut(`/users/${resetFor?.id}/sifre`, { yeni_sifre: yeniSifre }),
+    onSuccess: () => {
+      toast.success(`${resetFor?.email} şifresi sıfırlandı`);
+      setResetFor(null);
+      setYeniSifre("");
+    },
+    onError: (e) => toast.error(errText(e, "Şifre sıfırlanamadı")),
   });
 
   const toggle = (kod: string) =>
@@ -168,14 +186,28 @@ export default function Users() {
                       </TableCell>
                       <TableCell className="font-mono text-xs">{fmtDate(u.created_at)}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => removeUser.mutate(u.id)}
-                          data-testid={`user-delete-${u.email}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Şifre sıfırla"
+                            onClick={() => {
+                              setResetFor(u);
+                              setYeniSifre("");
+                            }}
+                            data-testid={`user-reset-password-${u.email}`}
+                          >
+                            <KeyRound className="h-4 w-4 text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => removeUser.mutate(u.id)}
+                            data-testid={`user-delete-${u.email}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -323,6 +355,47 @@ export default function Users() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!resetFor} onOpenChange={(o: boolean) => !o && setResetFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Şifre Sıfırla — {resetFor?.email}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            data-testid="reset-password-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              resetPassword.mutate();
+            }}
+          >
+            <p className="text-xs text-muted-foreground">
+              Yeni şifreyi kullanıcıya iletin. Sıfırlama sonrası bu kullanıcının tüm açık
+              oturumları kapatılır.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="rp-sifre">Yeni Şifre (en az 8 karakter)</Label>
+              <Input
+                id="rp-sifre"
+                required
+                minLength={8}
+                value={yeniSifre}
+                onChange={(e) => setYeniSifre(e.target.value)}
+                data-testid="reset-password-input"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={resetPassword.isPending}
+                data-testid="reset-password-save-button"
+              >
+                {resetPassword.isPending ? "Sıfırlanıyor…" : "Şifreyi Sıfırla"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

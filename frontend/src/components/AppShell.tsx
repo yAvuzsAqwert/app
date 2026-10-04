@@ -5,6 +5,7 @@ import { endSession } from "@/lib/session";
 import { useAuth } from "@/lib/useAuth";
 import { usePermissions } from "@/lib/usePermissions";
 import { useBranding } from "@/lib/useBranding";
+import PasswordDialog from "@/components/PasswordDialog";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -93,6 +94,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {rolLabel || "—"}
             </p>
           </div>
+          <PasswordDialog />
           <Button
             variant="ghost"
             size="sm"

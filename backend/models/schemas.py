@@ -535,3 +535,13 @@ class Branding(BaseModel):
 class BrandingUpdate(BaseModel):
     program_adi: str
     alt_baslik: str = ""
+
+
+# ---------- şifre yönetimi ----------
+class PasswordChange(BaseModel):
+    mevcut_sifre: str
+    yeni_sifre: str = Field(min_length=8)
+
+
+class PasswordReset(BaseModel):
+    yeni_sifre: str = Field(min_length=8)

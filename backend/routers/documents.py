@@ -11,7 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from lib.auth import current_user
 from lib.permissions import require
 from lib.dates import today_iso
-from lib.db import db
+from lib.db import db, get_db
 from models.schemas import DOC_CATEGORIES, Activity, DocumentMeta
 
 router = APIRouter(tags=["documents"])
@@ -35,7 +35,9 @@ ALLOWED_EXT = {
     "txt",
 }
 
-bucket = AsyncIOMotorGridFSBucket(db, bucket_name="evraklar")
+def _bucket() -> AsyncIOMotorGridFSBucket:
+    """Her istekte servis eden event loop içinde oluşturulur."""
+    return AsyncIOMotorGridFSBucket(get_db(), bucket_name="evraklar")
 
 
 def _safe_name(name: str) -> str:
@@ -100,7 +102,7 @@ async def upload_document(
     if not payload:
         raise HTTPException(status_code=400, detail="Dosya boş")
 
-    file_id = await bucket.upload_from_stream(name, payload)
+    file_id = await _bucket().upload_from_stream(name, payload)
     meta = DocumentMeta(
         proje_id=proje_id,
         dosya_adi=name,
@@ -127,7 +129,7 @@ async def download_document(doc_id: str, user: dict = Depends(require("evrak:gor
     if not meta:
         raise HTTPException(status_code=404, detail="Evrak bulunamadı")
     try:
-        stream = await bucket.open_download_stream(ObjectId(meta["file_id"]))
+        stream = await _bucket().open_download_stream(ObjectId(meta["file_id"]))
     except Exception as exc:  # file row without its blob
         raise HTTPException(status_code=404, detail="Dosya içeriği bulunamadı") from exc
     data = await stream.read()
@@ -138,13 +140,33 @@ async def download_document(doc_id: str, user: dict = Depends(require("evrak:gor
     )
 
 
+@router.get("/evraklar/{doc_id}/goruntule")
+async def view_document(doc_id: str, user: dict = Depends(require("evrak:goruntule"))):
+    """Tarayıcıda açılır (inline) — PDF ve resim evrakları buradan yazdırılabilir."""
+    meta = await db.documents.find_one({"id": doc_id})
+    if not meta:
+        raise HTTPException(status_code=404, detail="Evrak bulunamadı")
+    try:
+        stream = await _bucket().open_download_stream(ObjectId(meta["file_id"]))
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Dosya içeriği bulunamadı") from exc
+    data = await stream.read()
+    return StreamingResponse(
+        iter([data]),
+        media_type=meta.get("content_type") or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'inline; filename="{_safe_name(meta.get("dosya_adi", "evrak"))}"'
+        },
+    )
+
+
 @router.delete("/evraklar/{doc_id}")
 async def delete_document(doc_id: str, user: dict = Depends(require("evrak:sil"))):
     meta = await db.documents.find_one({"id": doc_id})
     if not meta:
         raise HTTPException(status_code=404, detail="Evrak bulunamadı")
     try:
-        await bucket.delete(ObjectId(meta["file_id"]))
+        await _bucket().delete(ObjectId(meta["file_id"]))
     except Exception:  # blob already gone — still drop the row
         pass
     await db.documents.delete_one({"id": doc_id})

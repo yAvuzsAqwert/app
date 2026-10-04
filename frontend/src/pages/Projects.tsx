@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, Archive, ArchiveRestore } from "lucide-react";
-import { apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
+import { Plus, Search, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
 import type { DeadlineAlert, Project, ProjectPayload } from "@/lib/types";
 import {
   ALERT_TONES,
@@ -87,6 +87,7 @@ export default function Projects() {
   const gorunum = params.get("gorunum") ?? "aktif";
   const [arama, setArama] = useState("");
   const [open, setOpen] = useState(false);
+  const [silFor, setSilFor] = useState<Project | null>(null);
   const [form, setForm] = useState<ProjectPayload>(emptyProject);
 
   const query = useMemo(() => {
@@ -136,6 +137,18 @@ export default function Projects() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success(p.arsiv ? "Proje arşivlendi" : "Proje arşivden çıkarıldı");
+    },
+    onError: (err) => toast.error(errText(err)),
+  });
+
+  const sil = useMutation({
+    mutationFn: (id: string) => apiDelete(`/projects/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["alerts"] });
+      toast.success(`${silFor?.proje_kodu} kalıcı olarak silindi`);
+      setSilFor(null);
     },
     onError: (err) => toast.error(errText(err)),
   });
@@ -421,6 +434,16 @@ export default function Projects() {
                           <Archive className="h-4 w-4" />
                         )}
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Projeyi kalıcı olarak sil"
+                        disabled={!can("proje:sil")}
+                        onClick={() => setSilFor(p)}
+                        data-testid={`delete-button-${p.proje_kodu}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -431,6 +454,38 @@ export default function Projects() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!silFor} onOpenChange={(o: boolean) => !o && setSilFor(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Projeyi Sil — {silFor?.proje_kodu}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4" data-testid="delete-project-dialog">
+            <p className="text-sm text-muted-foreground">
+              <b className="text-foreground">{silFor?.proje_adi}</b> projesi, ürün kalemleri,
+              sandık kayıtları ve işlem geçmişiyle birlikte kalıcı olarak silinecek. Bu işlem geri
+              alınamaz — kaydı saklamak isterseniz silmek yerine <b>arşivleyin</b>.
+            </p>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setSilFor(null)}
+                data-testid="delete-project-cancel-button"
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={sil.isPending}
+                onClick={() => silFor && sil.mutate(silFor.id)}
+                data-testid="delete-project-confirm-button"
+              >
+                {sil.isPending ? "Siliniyor…" : "Kalıcı Olarak Sil"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

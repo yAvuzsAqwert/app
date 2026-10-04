@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,7 @@ import {
   Paperclip,
   Upload,
   Download,
+  Printer,
   Tags,
   GitCompare,
 } from "lucide-react";
@@ -127,6 +128,8 @@ const emptyCrate = (): CratePayload => ({
 
 export default function ProjectDetail() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
+  const [silOnay, setSilOnay] = useState(false);
   const qc = useQueryClient();
 
   const { data, isError } = useQuery({
@@ -207,6 +210,15 @@ export default function ProjectDetail() {
     onSuccess: () => {
       invalidate();
       toast.success("Evrak silindi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const silProje = useMutation({
+    mutationFn: () => apiDelete(`/projects/${id}`),
+    onSuccess: () => {
+      toast.success("Proje kalıcı olarak silindi");
+      navigate("/projeler", { replace: true });
     },
     onError: (e) => toast.error(errText(e)),
   });
@@ -394,6 +406,25 @@ export default function ProjectDetail() {
         <Link to="/projeler" className={buttonVariants({ variant: "outline", size: "sm" })}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Projeler
         </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          disabled={!can("proje:sil")}
+          onClick={() => setSilOnay(true)}
+          data-testid="delete-project-button"
+        >
+          <Trash2 className="mr-2 h-4 w-4" /> Projeyi Sil
+        </Button>
+        <a
+          href={`/api/projects/${id}/dosya.pdf`}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+          data-testid="print-project-button"
+        >
+          <Printer className="mr-2 h-4 w-4" /> Proje ve Detaylarını Yazdır
+        </a>
         <Button
           size="sm"
           onClick={() => proforma.mutate()}
@@ -1120,6 +1151,16 @@ export default function ProjectDetail() {
                           </TableCell>
                           <TableCell className="text-right">
                             <a
+                              href={`/api/evraklar/${d.id}/goruntule`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Görüntüle / Yazdır"
+                              className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                              data-testid={`print-document-${d.id}`}
+                            >
+                              <Printer className="h-4 w-4" />
+                            </a>
+                            <a
                               href={`/api/evraklar/${d.id}/indir`}
                               className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
                               data-testid={`download-document-${d.id}`}
@@ -1355,6 +1396,38 @@ export default function ProjectDetail() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={silOnay} onOpenChange={setSilOnay}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Projeyi Sil — {project?.proje_kodu}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4" data-testid="delete-project-dialog">
+            <p className="text-sm text-muted-foreground">
+              <b className="text-foreground">{project?.proje_adi}</b> projesi; ürün kalemleri,
+              sandık kayıtları ve işlem geçmişiyle birlikte kalıcı olarak silinecek. Geri alınamaz —
+              kaydı saklamak için silmek yerine <b>arşivleyin</b>.
+            </p>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setSilOnay(false)}
+                data-testid="delete-project-cancel-button"
+              >
+                Vazgeç
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={silProje.isPending}
+                onClick={() => silProje.mutate()}
+                data-testid="delete-project-confirm-button"
+              >
+                {silProje.isPending ? "Siliniyor…" : "Kalıcı Olarak Sil"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

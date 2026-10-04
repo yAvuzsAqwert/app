@@ -18,8 +18,11 @@ function errText(err: unknown) {
   if (err instanceof ApiError) {
     const body = err.body as { detail?: unknown } | null;
     if (body && typeof body.detail === "string") return body.detail;
+    if (err.status === 401) return "E-posta veya şifre hatalı";
+    if (err.status === 429) return "Çok fazla hatalı deneme — bir süre sonra tekrar deneyin";
+    return `Sunucu hatası (${err.status})`;
   }
-  return "İşlem başarısız oldu";
+  return "Sunucuya ulaşılamadı — internet bağlantınızı kontrol edip tekrar deneyin";
 }
 
 export default function Login() {

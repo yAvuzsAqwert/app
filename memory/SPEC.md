@@ -157,3 +157,58 @@ memory/test_credentials.md içinde.
   evrak indirme `Content-Disposition` dosya adı ASCII-safe temizlenir.
 - `seed.py` şifreleri koddan kaldırıldı (`SEED_PASSWORD` env ya da rastgele); canlı demo
   hesaplarının şifreleri döndürüldü ve tüm eski oturumlar iptal edildi.
+
+## Üretim hata düzeltmesi (sürüm 6.2) — "attached to a different loop"
+- `backend/lib/db.py`: Motor istemcisi artık import sırasında değil, ilk kullanımda
+  (`get_client()` / `get_db()`) oluşturulur; `db` ve `client` tembel proxy'lerdir.
+  Sebep: üretim entrypoint'i `--reload` içermediği için import-zamanı event loop,
+  servis eden loop'tan farklı oluyor ve DB'ye dokunan her uç 500 veriyordu.
+- GridFS bucket'ları modül düzeyinden fonksiyon içine taşındı
+  (`routers/branding.py`, `routers/documents.py`, `routers/proforma.py` → `_bucket()`;
+  `routers/portal.py` → `get_db()`), böylece onlar da servis eden loop'a bağlanır.
+- `MONGO_URL` yanında `MONGODB_URI`/`MONGO_URI`/`DATABASE_URL` da okunur; `DB_NAME` yoksa `app`.
+- Yeni teşhis ucu `GET /api/health` → `{ok, db, kullanici, proje}` (gizli bilgi içermez).
+- CORS: kimlik bilgili isteklerde `*` kullanılmaz; `CORS_ORIGINS` listesinden wildcard atılır,
+  `CORS_ORIGIN_REGEX` ile `*.emergentagent.com`, `*.emergent.host`, `*.diagonalventure.com`
+  origin'leri kabul edilir ve yanıtta tam origin + `allow-credentials: true` döner.
+
+## Sürüm 6.3 — Şifre yönetimi
+- `PUT /api/auth/sifre` (oturum sahibi): mevcut şifre doğrulanır, yeni şifre en az 8 karakter,
+  değişiklik sonrası kullanıcının tüm oturumları kapatılır. Arayüz: yan menüdeki
+  "Şifremi Değiştir" (components/PasswordDialog.tsx).
+- `PUT /api/users/{id}/sifre` (`kullanici:yonet`): yönetici başka kullanıcının şifresini sıfırlar,
+  o kullanıcının oturumları kapatılır. Arayüz: Kullanıcılar & Yetkiler tablosunda anahtar ikonu.
+
+## Sürüm 6.4 — PDF Türkçe karakter + yazdırma
+- PDF fontu (`LiberationSans-Regular/Bold.ttf`) artık depoya gömülü:
+  `backend/assets/fonts/`. `routers/proforma.py::_register_fonts` önce gömülü dizine,
+  sonra sistem dizinine bakar; font yoksa Helvetica'ya DÜŞMEZ, 500 ile uyarır
+  (eski davranışta üretim imajında sistem fontu olmadığı için Türkçe karakterler bozuluyordu).
+  Proforma, sandık etiketi ve proje dosyası PDF'lerinin tümü aynı fontu kullanır.
+- **Proje dosyası PDF'i** (`routers/printouts.py`, `GET /api/projects/{id}/dosya.pdf`,
+  yetki `proje:goruntule`, `Content-Disposition: inline` → tarayıcıdan doğrudan yazdırılır):
+  proje künyesi, ürün kalemleri, muhasebe (yalnızca `muhasebe:goruntule` varsa),
+  sandık/paketleme listesi, revizyon geçmişi ve evrak listesi. Proje detay sayfasındaki
+  "Proje ve Detaylarını Yazdır" butonu.
+- **Evrak yazdırma**: `GET /api/evraklar/{id}/goruntule` (inline, `evrak:goruntule`) —
+  evrak satırındaki yazıcı ikonu dosyayı yeni sekmede açar, tarayıcıdan yazdırılabilir.
+
+## Sürüm 6.5 — Giriş (e-posta + şifre) gözden geçirme ve sertleştirme
+Mevcut akış doğrulandı: `POST /api/auth/login` (e-posta küçük harfe normalize edilir,
+pbkdf2-sha256 120k tur + kullanıcı başına salt), oturum httpOnly + Secure + SameSite=Lax
+çerezde (`pergola_session`), `sessions` koleksiyonunda 30 gün TTL, `GET /api/auth/me`,
+`POST /api/auth/logout` (sunucu tarafında oturumu siler), `PUT /api/auth/sifre`.
+Eklenenler:
+- **Brute-force koruması**: `login_attempts` koleksiyonu (1 saat TTL) — aynı e-posta+IP için
+  15 dakikada 10 hatalı denemeden veya aynı e-posta için 20 denemeden sonra `429`.
+  Başarılı girişte o e-postanın denemeleri temizlenir. IP, `X-Forwarded-For` ilk girdisinden
+  alınır (ters vekil arkasında doğru çalışır).
+- Giriş ekranı hata mesajları netleşti (401 / 429 / sunucu hatası / ağ hatası ayrı ayrı).
+
+## Sürüm 6.6 — Proje silme (arayüz)
+- `DELETE /api/projects/{id}` (yetki `proje:sil`) projeyi, ürün kalemlerini, sandıklarını ve
+  işlem geçmişini birlikte siler; olmayan kayıt 404.
+- Arayüz: Projeler listesindeki her satırda çöp kutusu ikonu ve proje detay sayfasının
+  üstünde "Projeyi Sil" butonu. Her ikisi de onay diyaloğu açar
+  (`delete-project-dialog`, "Vazgeç" / "Kalıcı Olarak Sil") ve arşivleme alternatifini hatırlatır.
+  Yetkisi olmayan kullanıcıda butonlar devre dışıdır; detaydan silince `/projeler`e dönülür.

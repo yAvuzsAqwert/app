@@ -1,0 +1,154 @@
+{
+  "iteration": 4,
+  "summary": "Retest after: (1) CORS middleware hardened to never echo wildcard for credentialed requests, with exact-origin allowlist + regex and no-header rejection for unrelated origins; (2) new GET /api/health diagnostic endpoint; (3) lib/db.py now resolves MONGO_URL/MONGODB_URI/MONGO_URI/DATABASE_URL in order with DB_NAME fallback to 'app'. Added 3 new backend test files (9 tests) covering the 3 new criteria. Re-ran all 8 prior backend test files (7 passed first try) and all 7 prior browser checks by name only. 23/23 artifacts ended passed; 3 browser checks (izleyici-ui-hides-financials, monthly-report-page-renders) hit the same transient 429 rate-limit pattern already documented in iterations 2-3 on back-to-back reruns and passed cleanly on a solo rerun -> classified flaky, not a bug. One stray fixture user (tscheck-izleyici-ui-1@example.com, left over from a prior failed run of the pre-existing izleyici check) was found via GET /api/health (kullanici:4) and deleted via the admin API before the final rerun, restoring the seed_facts invariant of exactly 3 users; /api/health now reports kullanici:3, proje:11.",
+  "passed": 23,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    "Noted (not a bug, pre-existing pattern, now observed again): back-to-back browser checks against the shared preview ingress intermittently return HTTP 429 for static assets/HMR websocket, breaking SPA load mid-flow. Every affected check (izleyici-ui-hides-financials, monthly-report-page-renders) passed on a solo rerun with the backend confirmed healthy via curl throughout, so this is ingress-side rate limiting under concurrent automation traffic, not an application defect.",
+    "Housekeeping note: the pre-existing izleyici-ui-hides-financials check's own cleanup step (delete created user via API) did not run on an earlier failed pass in this session, leaving one extra user. Deleted it manually before finalizing; main agent may want to make that check's cleanup resilient to mid-flow failures (e.g. delete-by-email at check start) so a crash mid-flow can't strand seed state, but this is a test-authoring hygiene note, not an app bug."
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Kimlik bilgili CORS artik wildcard kullanmiyor - tam origin eslesmesi + credentials:true",
+      "name": "test_tscheck_cors_no_wildcard_credentials.py::test_preflight_allows_exact_custom_domain_with_credentials",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "OPTIONS /api/projects (backend:8001) Origin=https://siparis.diagonalventure.com -> 200, access-control-allow-origin == https://siparis.diagonalventure.com (exact, not *), access-control-allow-credentials=true"
+    },
+    {
+      "criterion": "Kimlik bilgili CORS artik wildcard kullanmiyor - yetkisiz origin icin header hic donmuyor",
+      "name": "test_tscheck_cors_no_wildcard_credentials.py::test_preflight_rejects_unrelated_origin_no_header_at_all",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "OPTIONS /api/projects Origin=https://kotu-site.example -> access-control-allow-origin header is None (absent), never '*'"
+    },
+    {
+      "criterion": "Kimlik bilgili CORS artik wildcard kullanmiyor - hicbir yanitta '*' yok",
+      "name": "test_tscheck_cors_no_wildcard_credentials.py::test_no_response_ever_echoes_wildcard_star",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "3 origins probed (allowed custom domain, bad origin, preview url) via OPTIONS /api/projects -> access-control-allow-origin never equals '*' in any response"
+    },
+    {
+      "criterion": "Yeni /api/health teshis ucu",
+      "name": "test_tscheck_health_endpoint.py::test_health_endpoint_no_session_required_and_shape",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/health (no cookies) -> 200 {ok:true, db:'up', kullanici:>=3, proje:>=11}; response body scanned for mongodb://, MONGO_URL, sifre/password markers -> none present"
+    },
+    {
+      "criterion": "Mongo baglanti cozumlemesi degisikligi regresyon yaratmadi",
+      "name": "test_tscheck_mongo_url_resolution_regression.py::test_db_resolution_supports_full_authenticated_flow_with_seed_counts",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Via public preview URL: POST /auth/login (admin) -> 200 rol=admin; GET /projects -> 200, 11 items; GET /dashboard -> 200; GET /reports/monthly?ay=2026-09 -> 200"
+    },
+    {
+      "criterion": "CORS yapilandirmasi (onceki) regex eslesmesi ve yetkisiz origin reddi - rerun",
+      "name": "test_tscheck_cors_config_regression.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: 3/3 tests passed (preflight allow echo for preview origin, reject unrelated origin, authenticated flow through public URL)"
+    },
+    {
+      "criterion": "Acik kayit kapatildi (SEC-001) - rerun",
+      "name": "test_tscheck_open_registration_closed.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: POST /api/auth/register (anon) -> 401"
+    },
+    {
+      "criterion": "Acik kayit kapatildi (SEC-001) - UI surface - rerun",
+      "name": "login-no-open-registration",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: /giris has no register form/links"
+    },
+    {
+      "criterion": "Admin girisi ve tam yetki - rerun",
+      "name": "test_tscheck_admin_login_full_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: login 200 rol=admin, /api/my-permissions yetkiler.length==21"
+    },
+    {
+      "criterion": "Admin girisi ve tam yetki - UI surface - rerun",
+      "name": "admin-login-full-menu",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: full sidebar menu visible for admin"
+    },
+    {
+      "criterion": "Izleyici rolu finansal veriyi goremez (SEC-002) - rerun",
+      "name": "test_tscheck_izleyici_financial_masking.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: asamalar[].tutar all 0, para_birimi_dagilimi[].tutar all 0 for izleyici; admin dashboard unaffected"
+    },
+    {
+      "criterion": "Izleyici rolu finansal veriyi goremez (SEC-002) - UI surface - rerun",
+      "name": "izleyici-ui-hides-financials",
+      "lane": "browser",
+      "status": "flaky",
+      "evidence": "First rerun (back-to-back) failed: 'Timeout waiting input[type=email]' + 429 console errors + found a stray leftover fixture user via GET /api/health (kullanici:4), deleted it manually (curl DELETE /api/users/<id> -> {ok:true}), health returned to kullanici:3. Solo rerun passed cleanly, viewer dashboard shows masked totals, menu absent."
+    },
+    {
+      "criterion": "Satis rolu yetkileri calisiyor - rerun",
+      "name": "test_tscheck_satis_role_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: login 200 rol=satis, permissions exclude kullanici:yonet/muhasebe:duzenle/sandik:yonet"
+    },
+    {
+      "criterion": "Satis rolu yetkileri calisiyor - UI surface - rerun",
+      "name": "satis-role-restricted-buttons",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: disabled Muhasebe/Sandik buttons, enabled Kalem button, all 4 screenshots captured"
+    },
+    {
+      "criterion": "Aylik rapor donem dogrulamasi (SEC-003) - rerun",
+      "name": "test_tscheck_monthly_report_period_validation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: ay=2026- -> 400, ay=2026-13 -> 400, ay=2026-09 -> 200"
+    },
+    {
+      "criterion": "Aylik rapor donem dogrulamasi (SEC-003) - UI surface - rerun",
+      "name": "monthly-report-page-renders",
+      "lane": "browser",
+      "status": "flaky",
+      "evidence": "Two back-to-back reruns failed with 'body hidden' timeout + 429 console errors (including 429 on the HMR websocket handshake) while curl against /api/reports/monthly?ay=2026-09 returned 200 throughout. After a 60s cooldown, a solo rerun passed cleanly: /aylik-rapor renders TRY summary + kur breakdown."
+    },
+    {
+      "criterion": "Proje aramasinda regex injection yok - rerun",
+      "name": "test_tscheck_project_search_regex_safety.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: catastrophic regex q param -> 200, no 500"
+    },
+    {
+      "criterion": "Bayi portali izolasyonu koruniyor - rerun",
+      "name": "test_tscheck_dealer_portal_isolation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: portal login 200, own project only, cross-project proforma 404, /api/projects with portal cookie -> 401"
+    },
+    {
+      "criterion": "Bayi portali izolasyonu koruniyor - UI surface - rerun",
+      "name": "dealer-portal-shows-only-own-project",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: PRG-2026-005 only shown, no other projects"
+    },
+    {
+      "criterion": "Marka ve isim ayarlari bozulmadi - rerun",
+      "name": "branding-and-settings-page",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: DIAGONAL branding + /tanimlar settings cards render"
+    }
+  ]
+}

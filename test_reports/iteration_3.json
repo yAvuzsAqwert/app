@@ -1,0 +1,125 @@
+{
+  "iteration": 3,
+  "summary": "Retest after CORS config change in backend/server.py (CORS_ORIGINS allowlist + allow_origin_regex for emergentagent.com/emergent.host subdomains). Added 1 new backend test file (3 tests) verifying the regex preflight match, rejection of an unrelated origin, and the full authenticated flow (login/branding/projects/dashboard/reports.monthly) through the public preview URL. Re-ran all 7 prior backend test files (8 tests) and all 7 prior browser checks by name only. 19/19 artifacts passed. 3 browser checks (satis-role-restricted-buttons, monthly-report-page-renders, dealer-portal-shows-only-own-project) failed on the first back-to-back rerun with transient 429 rate-limit console errors identical to the pattern already documented in iteration_2; each passed cleanly on a solo rerun and is classified flaky, not a bug.",
+  "passed": 19,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    "Noted (not a bug): a direct curl OPTIONS preflight against the PUBLIC https hostname (through the Cloudflare/ingress edge in front of the app) returned 400 'Disallowed CORS origin' even for the preview's own origin, while the identical preflight sent directly to the uvicorn backend (:8001) returned 200 with a correctly-echoed Access-Control-Allow-Origin header. This indicates an edge/CDN layer ahead of the FastAPI app enforces its own CORS policy independent of server.py, consistent with the briefing's spec_deviations note that the user's reported issue is tied to the live custom domain/edge and not reproducible/fixable from the app code in preview. All real browser flows (SPA same-origin requests, cookie-based login) through the public preview URL continued to work in every browser check, so no regression was introduced by the server.py change itself."
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "CORS yapılandırması değişikliği sonrası uygulama bozulmadı - preflight regex eşleşmesi ve yetkisiz origin reddi",
+      "name": "test_tscheck_cors_config_regression.py::test_cors_preflight_allows_matching_preview_origin / test_cors_preflight_rejects_unrelated_origin",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "OPTIONS /api/branding (backend:8001) Origin=https://pergola-tracker.preview.emergentagent.com -> 200, access-control-allow-origin echoes that origin, allow-credentials=true. OPTIONS /api/branding Origin=https://evil-attacker.example.com -> allow-origin header never equals the attacker origin."
+    },
+    {
+      "criterion": "CORS yapılandırması değişikliği sonrası uygulama bozulmadı - preview URL üzerinden giriş/branding/projects/dashboard/reports.monthly",
+      "name": "test_tscheck_cors_config_regression.py::test_authenticated_flow_still_works_through_public_preview_url",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Against https://pergola-tracker.preview.emergentagent.com/api: GET /branding (anon) -> 200; POST /auth/login (admin) -> 200 rol=admin + session cookie set; GET /projects -> 200; GET /dashboard -> 200; GET /reports/monthly?ay=2026-09 -> 200."
+    },
+    {
+      "criterion": "Açık kayıt kapatıldı (SEC-001)",
+      "name": "test_tscheck_open_registration_closed.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: POST /api/auth/register (anon) -> 401"
+    },
+    {
+      "criterion": "Açık kayıt kapatıldı (SEC-001) - UI surface",
+      "name": "login-no-open-registration",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: /giris has no register form/links"
+    },
+    {
+      "criterion": "Admin girişi ve tam yetki",
+      "name": "test_tscheck_admin_login_full_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: login 200 rol=admin, /api/my-permissions yetkiler.length==21"
+    },
+    {
+      "criterion": "Admin girişi ve tam yetki - UI surface",
+      "name": "admin-login-full-menu",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: full sidebar menu visible for admin"
+    },
+    {
+      "criterion": "İzleyici rolü finansal veriyi göremez (SEC-002) - panel finansal kırılımı da maskelenir",
+      "name": "test_tscheck_izleyici_financial_masking.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: asamalar[].tutar all 0, para_birimi_dagilimi[].tutar all 0, yaklasan_sevkiyatlar[].muhasebe all 0 for izleyici; admin dashboard unaffected (toplam_satis=2252050.0)."
+    },
+    {
+      "criterion": "İzleyici rolü finansal veriyi göremez (SEC-002) - UI surface",
+      "name": "izleyici-ui-hides-financials",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: viewer dashboard renders masked totals, Kullanıcılar menu absent, fixture user cleaned up post-run."
+    },
+    {
+      "criterion": "Satış rolü yetkileri çalışıyor",
+      "name": "test_tscheck_satis_role_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: login 200 rol=satis, permissions exclude kullanici:yonet/muhasebe:duzenle/sandik:yonet"
+    },
+    {
+      "criterion": "Satış rolü yetkileri çalışıyor - UI surface",
+      "name": "satis-role-restricted-buttons",
+      "lane": "browser",
+      "status": "flaky",
+      "evidence": "First rerun (back-to-back with other checks) failed: 'Timeout waiting input[type=email]' + 8x console 429 errors (transient rate-limit). Solo rerun passed cleanly with all 4 screenshots (disabled Muhasebe/Sandık buttons, enabled Kalem button)."
+    },
+    {
+      "criterion": "Aylık rapor dönem doğrulaması (SEC-003)",
+      "name": "test_tscheck_monthly_report_period_validation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: ay=2026- -> 400, ay=2026-13 -> 400, ay=2026-09 -> 200"
+    },
+    {
+      "criterion": "Aylık rapor dönem doğrulaması (SEC-003) - UI surface",
+      "name": "monthly-report-page-renders",
+      "lane": "browser",
+      "status": "flaky",
+      "evidence": "First rerun (back-to-back) failed: 'body hidden' timeout + 9x console 429 errors (transient rate-limit). Solo rerun passed cleanly: /aylik-rapor renders TRY summary + kur breakdown."
+    },
+    {
+      "criterion": "Proje aramasında regex injection yok",
+      "name": "test_tscheck_project_search_regex_safety.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: catastrophic regex q param -> 200, no 500"
+    },
+    {
+      "criterion": "Bayi portalı izolasyonu korunuyor",
+      "name": "test_tscheck_dealer_portal_isolation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: portal login 200, own project only, cross-project proforma 404, /api/projects with portal cookie -> 401"
+    },
+    {
+      "criterion": "Bayi portalı izolasyonu korunuyor - UI surface",
+      "name": "dealer-portal-shows-only-own-project",
+      "lane": "browser",
+      "status": "flaky",
+      "evidence": "First rerun (back-to-back) failed: 'Timeout waiting input[type=email]' + 6x console 429 errors (transient rate-limit). Solo rerun 30s later passed cleanly showing PRG-2026-005 only."
+    },
+    {
+      "criterion": "Marka ve isim ayarları bozulmadı",
+      "name": "branding-and-settings-page",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check against preview URL: DIAGONAL branding + /tanimlar settings cards render"
+    }
+  ]
+}

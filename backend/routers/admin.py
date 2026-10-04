@@ -20,6 +20,7 @@ from models.schemas import (
     Role,
     RolePermissionUpdate,
     UserAccount,
+    PasswordReset,
     UserCreate,
     UserRoleUpdate,
 )
@@ -127,6 +128,28 @@ async def set_user_role(
         ad_soyad=fresh.get("ad_soyad", ""),
         rol=fresh.get("rol", DEFAULT_ROLE),
         created_at=fresh["created_at"],
+    )
+
+
+@router.put("/users/{user_id}/sifre", response_model=UserAccount)
+async def reset_user_password(
+    user_id: str, payload: PasswordReset, user: dict = Depends(require("kullanici:yonet"))
+):
+    """Yönetici bir kullanıcının şifresini sıfırlar; o kullanıcının oturumları kapatılır."""
+    target = await db.users.find_one({"id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    await db.users.update_one(
+        {"id": user_id}, {"$set": {"sifre_hash": hash_password(payload.yeni_sifre)}}
+    )
+    await db.sessions.delete_many({"user_id": user_id})
+    target = _aware(await db.users.find_one({"id": user_id}) or {})
+    return UserAccount(
+        id=target["id"],
+        email=target["email"],
+        ad_soyad=target.get("ad_soyad", ""),
+        rol=target.get("rol", DEFAULT_ROLE),
+        created_at=target["created_at"],
     )
 
 

@@ -8,7 +8,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
-from lib.db import db
+from lib.db import db, get_db
 from lib.permissions import require
 from models.schemas import Branding, BrandingUpdate
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
@@ -18,7 +18,9 @@ router = APIRouter(tags=["branding"])
 KEY = "branding"
 MAX_LOGO_BYTES = 2 * 1024 * 1024
 LOGO_EXT = {"png", "jpg", "jpeg", "webp", "svg"}
-bucket = AsyncIOMotorGridFSBucket(db, bucket_name="branding")
+def _bucket() -> AsyncIOMotorGridFSBucket:
+    """Her istekte servis eden event loop içinde oluşturulur."""
+    return AsyncIOMotorGridFSBucket(get_db(), bucket_name="branding")
 
 
 async def _doc() -> dict:
@@ -74,10 +76,10 @@ async def upload_logo(
     row = await _doc()
     if row.get("logo_file_id"):
         try:
-            await bucket.delete(ObjectId(row["logo_file_id"]))
+            await _bucket().delete(ObjectId(row["logo_file_id"]))
         except Exception:
             pass
-    file_id = await bucket.upload_from_stream(name, payload)
+    file_id = await _bucket().upload_from_stream(name, payload)
     await db.settings.update_one(
         {"key": KEY},
         {
@@ -98,7 +100,7 @@ async def delete_logo(user: dict = Depends(require("tanim:yonet"))):
     row = await _doc()
     if row.get("logo_file_id"):
         try:
-            await bucket.delete(ObjectId(row["logo_file_id"]))
+            await _bucket().delete(ObjectId(row["logo_file_id"]))
         except Exception:
             pass
     await db.settings.update_one(
@@ -113,7 +115,7 @@ async def get_logo():
     if not row.get("logo_file_id"):
         raise HTTPException(status_code=404, detail="Logo yüklenmemiş")
     try:
-        stream = await bucket.open_download_stream(ObjectId(row["logo_file_id"]))
+        stream = await _bucket().open_download_stream(ObjectId(row["logo_file_id"]))
     except Exception as exc:
         raise HTTPException(status_code=404, detail="Logo bulunamadı") from exc
     data = await stream.read()
