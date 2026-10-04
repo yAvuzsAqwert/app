@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 
 from lib.auth import current_user
+from lib.permissions import require
 from lib.catalog import CATALOG_TYPES, USAGE, list_catalog, slugify
 from lib.db import db
 from models.schemas import CatalogCreate, CatalogItem, CatalogReorder, CatalogUpdate
@@ -42,7 +43,7 @@ async def get_catalog(tip: str, user: dict = Depends(current_user)):
 
 
 @router.post("/{tip}", response_model=CatalogItem)
-async def create_catalog(tip: str, payload: CatalogCreate, user: dict = Depends(current_user)):
+async def create_catalog(tip: str, payload: CatalogCreate, user: dict = Depends(require("tanim:yonet"))):
     if tip not in CATALOG_TYPES:
         raise HTTPException(status_code=404, detail="Tanım tipi bulunamadı")
     label = payload.label.strip()
@@ -62,7 +63,7 @@ async def create_catalog(tip: str, payload: CatalogCreate, user: dict = Depends(
 
 @router.put("/{tip}/{item_id}", response_model=CatalogItem)
 async def update_catalog(
-    tip: str, item_id: str, payload: CatalogUpdate, user: dict = Depends(current_user)
+    tip: str, item_id: str, payload: CatalogUpdate, user: dict = Depends(require("tanim:yonet"))
 ):
     row = await db.catalogs.find_one({"id": item_id, "tip": tip})
     if not row:
@@ -77,7 +78,7 @@ async def update_catalog(
 
 
 @router.delete("/{tip}/{item_id}")
-async def delete_catalog(tip: str, item_id: str, user: dict = Depends(current_user)):
+async def delete_catalog(tip: str, item_id: str, user: dict = Depends(require("tanim:yonet"))):
     row = await db.catalogs.find_one({"id": item_id, "tip": tip})
     if not row:
         raise HTTPException(status_code=404, detail="Tanım bulunamadı")
@@ -95,7 +96,7 @@ async def delete_catalog(tip: str, item_id: str, user: dict = Depends(current_us
 
 @router.patch("/{tip}/reorder", response_model=List[CatalogItem])
 async def reorder_catalog(
-    tip: str, payload: CatalogReorder, user: dict = Depends(current_user)
+    tip: str, payload: CatalogReorder, user: dict = Depends(require("tanim:yonet"))
 ):
     if tip not in CATALOG_TYPES:
         raise HTTPException(status_code=404, detail="Tanım tipi bulunamadı")

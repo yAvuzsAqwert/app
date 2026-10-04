@@ -15,6 +15,7 @@ import {
 } from "@/lib/constants";
 import { PageHeader, EmptyState } from "@/components/AppShell";
 import CatalogSelect from "@/components/CatalogSelect";
+import { usePermissions } from "@/lib/usePermissions";
 import { StageBadge } from "@/components/StageBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +81,7 @@ function errText(err: unknown) {
 
 export default function Projects() {
   const qc = useQueryClient();
+  const { can } = usePermissions();
   const [params, setParams] = useSearchParams();
   const durum = params.get("durum") ?? "";
   const gorunum = params.get("gorunum") ?? "aktif";
@@ -164,7 +166,7 @@ export default function Projects() {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger
             render={
-              <Button data-testid="new-project-button">
+              <Button data-testid="new-project-button" disabled={!can("proje:ekle")}>
                 <Plus className="mr-2 h-4 w-4" /> Yeni Proje
               </Button>
             }

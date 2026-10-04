@@ -31,6 +31,7 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from lib.auth import current_user
 from lib.catalog import stage_labels
 from lib.db import db
+from lib.permissions import require
 from models.schemas import STAGE_LABELS
 from routers.revisions import snapshot
 
@@ -133,17 +134,9 @@ def _tr_date(value: str | None) -> str:
         return value
 
 
-@router.get("/projects/{proje_id}/proforma")
-async def proforma_pdf(proje_id: str, user: dict = Depends(current_user)):
-    project = await db.projects.find_one({"id": proje_id})
-    if not project:
-        raise HTTPException(status_code=404, detail="Proje bulunamadı")
-    items = await db.project_items.find({"proje_id": proje_id}).sort("created_at", 1).to_list(500)
-    # PDF her alındığında proformanın o anki hali revizyon olarak saklanır
-    await snapshot(proje_id, "pdf", "Proforma PDF indirildi", user)
-    labels = await stage_labels()
-
+async def _build_proforma_pdf(project: dict, items: list[dict], labels: dict) -> io.BytesIO:
     font, bold = _register_fonts()
+    proje_id = project["id"]
     cur = project.get("para_birimi", "")
     ss = getSampleStyleSheet()
     body = ParagraphStyle("body", parent=ss["Normal"], fontName=font, fontSize=8.5, leading=11)
@@ -385,6 +378,18 @@ async def proforma_pdf(proje_id: str, user: dict = Depends(current_user)):
 
     doc.build(flow)
     buf.seek(0)
+    return buf
+
+
+@router.get("/projects/{proje_id}/proforma")
+async def proforma_pdf(proje_id: str, user: dict = Depends(require("proforma:olustur"))):
+    project = await db.projects.find_one({"id": proje_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Proje bulunamadı")
+    items = await db.project_items.find({"proje_id": proje_id}).sort("created_at", 1).to_list(500)
+    # PDF her alındığında proformanın o anki hali revizyon olarak saklanır
+    await snapshot(proje_id, "pdf", "Proforma PDF indirildi", user)
+    buf = await _build_proforma_pdf(project, items, await stage_labels())
     return StreamingResponse(
         buf,
         media_type="application/pdf",

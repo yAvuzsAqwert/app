@@ -5,6 +5,7 @@ export interface User {
   id: string;
   email: string;
   ad_soyad: string;
+  rol: string;
   created_at: string;
 }
 
@@ -291,4 +292,68 @@ export interface PortalSummary {
   toplam_tahsilat: number;
   acik_bakiye: number;
   projeler: PortalProject[];
+}
+
+// ---------- yetkilendirme ----------
+export interface Role {
+  kod: string;
+  label: string;
+  yetkiler: string[];
+  sistem: boolean;
+}
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  ad_soyad: string;
+  rol: string;
+  created_at: string;
+}
+
+export interface MyPermissions {
+  rol: string;
+  rol_label: string;
+  yetkiler: string[];
+}
+
+// ---------- döviz kuru ----------
+export interface ExchangeRate {
+  para_birimi: string;
+  kur: number;
+  guncellenme: string;
+  guncelleyen: string;
+}
+
+// ---------- aylık rapor ----------
+export interface DealerMonthRow {
+  firma: string;
+  ulke: string;
+  proje_adet: number;
+  satis_try: number;
+  tahsilat_try: number;
+}
+
+export interface MonthlyReport {
+  ay: string;
+  proje_adet: number;
+  kur_dagilimi: CurrencyTotal[];
+  try_satis: number;
+  try_tahsilat: number;
+  try_bakiye: number;
+  try_net_kar: number;
+  kurlar: ExchangeRate[];
+  eksik_kurlar: string[];
+  asama_dagilimi: StageCount[];
+  bayi_ozeti: DealerMonthRow[];
+}
+
+// ---------- portal evrakları ----------
+export interface PortalDocument {
+  id: string;
+  proje_kodu: string;
+  dosya_adi: string;
+  kategori: string;
+  boyut: number;
+  aciklama: string;
+  created_at: string;
 }

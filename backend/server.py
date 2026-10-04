@@ -14,11 +14,13 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
 from lib.catalog import ensure_catalog_defaults
+from lib.permissions import ensure_role_defaults
 from routers.auth import router as auth_router
 from routers.catalogs import router as catalogs_router
 from routers.dealers import router as dealers_router
 from routers.documents import router as documents_router
 from routers.labels import router as labels_router
+from routers.admin import router as admin_router
 from routers.portal import router as portal_router
 from routers.proforma import router as proforma_router
 from routers.projects import router as projects_router
@@ -31,6 +33,7 @@ from routers.revisions import router as revisions_router
 async def lifespan(app: FastAPI):
     app.state.index_task = asyncio.create_task(ensure_indexes())  # background: a big index build must not block boot
     app.state.catalog_task = asyncio.create_task(ensure_catalog_defaults())  # tanım listelerini tohumla
+    app.state.role_task = asyncio.create_task(ensure_role_defaults())  # rol/yetki tohumlama
     yield
     client.close()
 
@@ -55,6 +58,7 @@ api_router.include_router(documents_router)
 api_router.include_router(revisions_router)
 api_router.include_router(labels_router)
 api_router.include_router(portal_router)
+api_router.include_router(admin_router)
 api_router.include_router(proforma_router)
 api_router.include_router(reports_router)
 

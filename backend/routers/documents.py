@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from lib.auth import current_user
+from lib.permissions import require
 from lib.dates import today_iso
 from lib.db import db
 from models.schemas import DOC_CATEGORIES, Activity, DocumentMeta
@@ -69,7 +70,7 @@ async def upload_document(
     file: UploadFile = File(...),
     kategori: str = Form(default="diger"),
     aciklama: str = Form(default=""),
-    user: dict = Depends(current_user),
+    user: dict = Depends(require("evrak:yukle")),
 ):
     project = await db.projects.find_one({"id": proje_id})
     if not project:
@@ -130,7 +131,7 @@ async def download_document(doc_id: str, user: dict = Depends(current_user)):
 
 
 @router.delete("/evraklar/{doc_id}")
-async def delete_document(doc_id: str, user: dict = Depends(current_user)):
+async def delete_document(doc_id: str, user: dict = Depends(require("evrak:sil"))):
     meta = await db.documents.find_one({"id": doc_id})
     if not meta:
         raise HTTPException(status_code=404, detail="Evrak bulunamadı")

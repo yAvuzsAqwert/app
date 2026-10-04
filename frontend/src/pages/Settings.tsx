@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Check, Pencil, Plus, Trash2, X, SlidersHorizontal } from "lucide-react";
-import type { CatalogItem } from "@/lib/types";
+import { ArrowDown, ArrowUp, Check, Coins, Pencil, Plus, Trash2, X, SlidersHorizontal } from "lucide-react";
+import { apiGet, apiPut } from "@/lib/api";
+import type { CatalogItem, ExchangeRate } from "@/lib/types";
+import { fmtDate } from "@/lib/constants";
 import {
   CATALOG_LABELS,
   catalogError,
@@ -287,6 +290,94 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      <RatesCard />
     </div>
+  );
+}
+
+/** Döviz kurları — elle girilen, TRY bazlı (1 birim = kaç TRY). */
+function RatesCard() {
+  const qc = useQueryClient();
+  const paraBirimleri = useCatalog("para_birimi");
+  const { data: rates } = useQuery({
+    queryKey: ["rates"],
+    queryFn: () => apiGet<ExchangeRate[]>("/kurlar"),
+    retry: false,
+  });
+  const [taslak, setTaslak] = useState<Record<string, string>>({});
+
+  const kodlar = Array.from(
+    new Set([
+      ...paraBirimleri.map((p) => p.label.toUpperCase()),
+      ...(rates ?? []).map((r) => r.para_birimi),
+    ]),
+  ).filter((k) => k && k !== "TRY");
+
+  const value = (kod: string) =>
+    taslak[kod] ?? String((rates ?? []).find((r) => r.para_birimi === kod)?.kur ?? "");
+
+  const save = useMutation({
+    mutationFn: () =>
+      apiPut<ExchangeRate[]>("/kurlar", {
+        kurlar: kodlar
+          .filter((k) => Number(value(k)) > 0)
+          .map((k) => ({ para_birimi: k, kur: Number(value(k)) })),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rates"] });
+      qc.invalidateQueries({ queryKey: ["monthly"] });
+      setTaslak({});
+      toast.success("Kurlar kaydedildi");
+    },
+    onError: (e) => toast.error(catalogError(e, "Kurlar kaydedilemedi")),
+  });
+
+  return (
+    <Card className="mt-6" data-testid="rates-card">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Coins className="h-4 w-4 text-primary" /> Döviz Kurları (1 birim = kaç TRY)
+        </CardTitle>
+        <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending} data-testid="rates-save-button">
+          {save.isPending ? "Kaydediliyor…" : "Kurları Kaydet"}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="rounded-md border border-border bg-secondary/20 p-3">
+            <p className="font-mono text-xs text-muted-foreground">TRY</p>
+            <p className="mt-1 font-mono text-sm">1,0000 (baz)</p>
+          </div>
+          {kodlar.map((kod) => (
+            <div key={kod} className="space-y-1.5">
+              <label className="font-mono text-xs text-primary" htmlFor={`rate-${kod}`}>
+                {kod}
+              </label>
+              <Input
+                id={`rate-${kod}`}
+                type="number"
+                step="0.0001"
+                value={value(kod)}
+                placeholder="örn. 38.5000"
+                onChange={(e) => setTaslak({ ...taslak, [kod]: e.target.value })}
+                data-testid={`rate-input-${kod}`}
+              />
+              <p className="font-mono text-[10px] text-muted-foreground">
+                {(rates ?? []).find((r) => r.para_birimi === kod)?.guncellenme
+                  ? `Son güncelleme: ${fmtDate(
+                      (rates ?? []).find((r) => r.para_birimi === kod)!.guncellenme,
+                    )}`
+                  : "kur girilmedi"}
+              </p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Bu kurlar aylık raporda tüm para birimlerinin TRY karşılığı özet toplamını hesaplamak
+          için kullanılır.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

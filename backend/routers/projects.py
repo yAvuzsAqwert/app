@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lib.auth import current_user
+from lib.permissions import require
 from lib.catalog import stage_keys, stage_labels
 from lib.dates import today_iso
 from lib.db import db
@@ -157,7 +158,7 @@ async def list_projects(
 
 
 @router.post("/projects", response_model=Project)
-async def create_project(payload: ProjectCreate, user: dict = Depends(current_user)):
+async def create_project(payload: ProjectCreate, user: dict = Depends(require("proje:ekle"))):
     if payload.durum not in await stage_keys():
         raise HTTPException(status_code=400, detail="Geçersiz aşama")
     data = payload.model_dump(exclude={"proje_kodu"})
@@ -176,7 +177,7 @@ async def create_project(payload: ProjectCreate, user: dict = Depends(current_us
 
 
 @router.get("/projects/{proje_id}", response_model=ProjectDetail)
-async def get_project(proje_id: str, user: dict = Depends(current_user)):
+async def get_project(proje_id: str, user: dict = Depends(require("proje:goruntule"))):
     doc = await _get_project(proje_id)
     items = await db.project_items.find({"proje_id": proje_id}).sort("created_at", 1).to_list(500)
     crates = await db.project_crates.find({"proje_id": proje_id}).sort("created_at", 1).to_list(500)
@@ -191,7 +192,7 @@ async def get_project(proje_id: str, user: dict = Depends(current_user)):
 
 @router.put("/projects/{proje_id}", response_model=Project)
 async def update_project(
-    proje_id: str, payload: ProjectUpdate, user: dict = Depends(current_user)
+    proje_id: str, payload: ProjectUpdate, user: dict = Depends(require("proje:duzenle"))
 ):
     doc = await _get_project(proje_id)
     if payload.durum not in await stage_keys():
@@ -216,7 +217,7 @@ async def update_project(
 
 
 @router.patch("/projects/{proje_id}/stage", response_model=Project)
-async def update_stage(proje_id: str, payload: StageUpdate, user: dict = Depends(current_user)):
+async def update_stage(proje_id: str, payload: StageUpdate, user: dict = Depends(require("asama:degistir"))):
     doc = await _get_project(proje_id)
     keys = await stage_keys()
     if payload.durum not in keys:
@@ -250,7 +251,7 @@ async def update_stage(proje_id: str, payload: StageUpdate, user: dict = Depends
 
 
 @router.patch("/projects/{proje_id}/archive", response_model=Project)
-async def toggle_archive(proje_id: str, user: dict = Depends(current_user)):
+async def toggle_archive(proje_id: str, user: dict = Depends(require("proje:sil"))):
     doc = await _get_project(proje_id)
     yeni = not doc.get("arsiv", False)
     await db.projects.update_one(
@@ -267,7 +268,7 @@ async def toggle_archive(proje_id: str, user: dict = Depends(current_user)):
 
 
 @router.delete("/projects/{proje_id}")
-async def delete_project(proje_id: str, user: dict = Depends(current_user)):
+async def delete_project(proje_id: str, user: dict = Depends(require("proje:sil"))):
     await _get_project(proje_id)
     await db.projects.delete_one({"id": proje_id})
     await db.project_items.delete_many({"proje_id": proje_id})
@@ -278,7 +279,7 @@ async def delete_project(proje_id: str, user: dict = Depends(current_user)):
 
 # ---------------- accounting ----------------
 @router.put("/projects/{proje_id}/muhasebe", response_model=Project)
-async def update_muhasebe(proje_id: str, payload: Muhasebe, user: dict = Depends(current_user)):
+async def update_muhasebe(proje_id: str, payload: Muhasebe, user: dict = Depends(require("muhasebe:duzenle"))):
     doc = await _get_project(proje_id)
     muhasebe = compute_muhasebe(payload)
     await db.projects.update_one(
@@ -297,7 +298,7 @@ async def update_muhasebe(proje_id: str, payload: Muhasebe, user: dict = Depends
 
 # ---------------- items ----------------
 @router.post("/projects/{proje_id}/kalemler", response_model=ProjectItem)
-async def add_item(proje_id: str, payload: ItemBase, user: dict = Depends(current_user)):
+async def add_item(proje_id: str, payload: ItemBase, user: dict = Depends(require("kalem:yonet"))):
     doc = await _get_project(proje_id)
     item = ProjectItem(proje_id=proje_id, **payload.model_dump())
     await db.project_items.insert_one(item.model_dump())
@@ -309,7 +310,7 @@ async def add_item(proje_id: str, payload: ItemBase, user: dict = Depends(curren
 
 
 @router.put("/kalemler/{item_id}", response_model=ProjectItem)
-async def update_item(item_id: str, payload: ItemBase, user: dict = Depends(current_user)):
+async def update_item(item_id: str, payload: ItemBase, user: dict = Depends(require("kalem:yonet"))):
     existing = await db.project_items.find_one({"id": item_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Kalem bulunamadı")
@@ -327,7 +328,7 @@ async def update_item(item_id: str, payload: ItemBase, user: dict = Depends(curr
 
 
 @router.delete("/kalemler/{item_id}")
-async def delete_item(item_id: str, user: dict = Depends(current_user)):
+async def delete_item(item_id: str, user: dict = Depends(require("kalem:yonet"))):
     existing = await db.project_items.find_one({"id": item_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Kalem bulunamadı")
@@ -346,7 +347,7 @@ async def delete_item(item_id: str, user: dict = Depends(current_user)):
 
 # ---------------- crates ----------------
 @router.post("/projects/{proje_id}/sandiklar", response_model=ProjectCrate)
-async def add_crate(proje_id: str, payload: CrateBase, user: dict = Depends(current_user)):
+async def add_crate(proje_id: str, payload: CrateBase, user: dict = Depends(require("sandik:yonet"))):
     doc = await _get_project(proje_id)
     crate = compute_cbm(ProjectCrate(proje_id=proje_id, **payload.model_dump()))
     await db.project_crates.insert_one(crate.model_dump())
@@ -361,7 +362,7 @@ async def add_crate(proje_id: str, payload: CrateBase, user: dict = Depends(curr
 
 
 @router.delete("/sandiklar/{crate_id}")
-async def delete_crate(crate_id: str, user: dict = Depends(current_user)):
+async def delete_crate(crate_id: str, user: dict = Depends(require("sandik:yonet"))):
     existing = await db.project_crates.find_one({"id": crate_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Sandık bulunamadı")

@@ -33,7 +33,7 @@ async def register(payload: RegisterInput, response: Response):
     email = payload.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=409, detail="Bu e-posta zaten kayıtlı")
-    user = User(email=email, ad_soyad=payload.ad_soyad)
+    user = User(email=email, ad_soyad=payload.ad_soyad, rol="izleyici")
     doc = user.model_dump()
     doc["sifre_hash"] = hash_password(payload.sifre)
     await db.users.insert_one(doc)

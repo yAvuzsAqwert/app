@@ -12,8 +12,19 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from lib.auth import current_user
 from lib.catalog import stage_labels
 from lib.dates import today_iso
+from lib.permissions import require
 from lib.db import db
-from models.schemas import STAGE_LABELS, Activity, CurrencyTotal, DailyReport, Project
+from models.schemas import (
+    STAGE_LABELS,
+    Activity,
+    CurrencyTotal,
+    DailyReport,
+    DealerMonthRow,
+    ExchangeRate,
+    MonthlyReport,
+    Project,
+    StageCount,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -74,7 +85,7 @@ async def _collect(tarih: str) -> DailyReport:
 
 @router.get("/dealer-statement")
 async def dealer_statement(
-    anahtar: str = Query(...), user: dict = Depends(current_user)
+    anahtar: str = Query(...), user: dict = Depends(require("rapor:disaari"))
 ):
     """Bir bayinin tüm projeleri + tahsilat dökümü — tek Excel dosyası."""
     firma, _, ulke = anahtar.partition("|")
@@ -321,14 +332,14 @@ async def dealer_statement(
 
 @router.get("/daily", response_model=DailyReport)
 async def daily_report(
-    tarih: Optional[str] = Query(default=None), user: dict = Depends(current_user)
+    tarih: Optional[str] = Query(default=None), user: dict = Depends(require("rapor:goruntule"))
 ):
     return await _collect(tarih or today_iso())
 
 
 @router.get("/daily/export")
 async def export_daily(
-    tarih: Optional[str] = Query(default=None), user: dict = Depends(current_user)
+    tarih: Optional[str] = Query(default=None), user: dict = Depends(require("rapor:disaari"))
 ):
     gun = tarih or today_iso()
     report = await _collect(gun)
@@ -538,4 +549,223 @@ async def export_daily(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="pergola-rapor-{gun}.xlsx"'},
+    )
+
+
+# ---------- kur çevirisi + aylık rapor ----------
+async def _rates() -> dict[str, float]:
+    """TRY bazlı kurlar: 1 birim = kaç TRY. TRY her zaman 1.0."""
+    rows = await db.rates.find().to_list(50)
+    rates = {r["para_birimi"].upper(): float(r.get("kur") or 0) for r in rows}
+    rates["TRY"] = 1.0
+    return rates
+
+
+def _to_try(amount: float, currency: str, rates: dict[str, float]) -> float:
+    return amount * rates.get((currency or "TRY").upper(), 0.0)
+
+
+@router.get("/monthly", response_model=MonthlyReport)
+async def monthly_report(
+    ay: Optional[str] = Query(default=None, description="YYYY-MM"),
+    user: dict = Depends(require("rapor:goruntule")),
+):
+    donem = ay or today_iso()[:7]
+    if len(donem) != 7 or donem[4] != "-":
+        raise HTTPException(status_code=400, detail="Dönem YYYY-AA biçiminde olmalı")
+    docs = await db.projects.find({"proje_tarihi": {"$regex": f"^{donem}"}}).to_list(2000)
+    projects = [Project(**_aware(d)) for d in docs]
+
+    rates = await _rates()
+    rate_rows = [ExchangeRate(**r) for r in await db.rates.find().sort("para_birimi", 1).to_list(50)]
+    kullanilan = {(p.para_birimi or "TRY").upper() for p in projects}
+    eksik = sorted(c for c in kullanilan if not rates.get(c))
+
+    labels = await stage_labels()
+    asama = [
+        StageCount(
+            durum=d,
+            label=labels.get(d, d),
+            adet=len([p for p in projects if p.durum == d]),
+            tutar=round(
+                sum(
+                    _to_try(p.muhasebe.transfer_dahil_toplam_satis, p.para_birimi, rates)
+                    for p in projects
+                    if p.durum == d
+                ),
+                2,
+            ),
+        )
+        for d in labels
+        if any(p.durum == d for p in projects)
+    ]
+
+    bayiler: dict[str, list[Project]] = {}
+    for p in projects:
+        bayiler.setdefault(f"{p.firma or 'Belirtilmemiş'}|{p.ulke or '—'}", []).append(p)
+    bayi_ozeti = sorted(
+        [
+            DealerMonthRow(
+                firma=key.split("|", 1)[0],
+                ulke=key.split("|", 1)[1],
+                proje_adet=len(group),
+                satis_try=round(
+                    sum(
+                        _to_try(p.muhasebe.transfer_dahil_toplam_satis, p.para_birimi, rates)
+                        for p in group
+                    ),
+                    2,
+                ),
+                tahsilat_try=round(
+                    sum(_to_try(p.muhasebe.toplam_tahsilat, p.para_birimi, rates) for p in group), 2
+                ),
+            )
+            for key, group in bayiler.items()
+        ],
+        key=lambda r: r.satis_try,
+        reverse=True,
+    )
+
+    return MonthlyReport(
+        ay=donem,
+        proje_adet=len(projects),
+        kur_dagilimi=_by_currency(projects),
+        try_satis=round(
+            sum(
+                _to_try(p.muhasebe.transfer_dahil_toplam_satis, p.para_birimi, rates)
+                for p in projects
+            ),
+            2,
+        ),
+        try_tahsilat=round(
+            sum(_to_try(p.muhasebe.toplam_tahsilat, p.para_birimi, rates) for p in projects), 2
+        ),
+        try_bakiye=round(
+            sum(_to_try(p.muhasebe.kalan_bakiye, p.para_birimi, rates) for p in projects), 2
+        ),
+        try_net_kar=round(
+            sum(_to_try(p.muhasebe.net_kar, p.para_birimi, rates) for p in projects), 2
+        ),
+        kurlar=rate_rows,
+        eksik_kurlar=eksik,
+        asama_dagilimi=asama,
+        bayi_ozeti=bayi_ozeti,
+    )
+
+
+@router.get("/monthly/export")
+async def export_monthly(
+    ay: Optional[str] = Query(default=None), user: dict = Depends(require("rapor:disaari"))
+):
+    report = await monthly_report(ay=ay, user=user)
+    rates = await _rates()
+    docs = await db.projects.find({"proje_tarihi": {"$regex": f"^{report.ay}"}}).to_list(2000)
+    projects = [Project(**_aware(d)) for d in docs]
+    labels = await stage_labels()
+
+    wb = Workbook()
+    head_font = Font(bold=True, color="FFFFFF")
+    head_fill = PatternFill("solid", fgColor="0F172A")
+
+    def sheet(title: str, headers: list[str], rows: list[list]):
+        ws = wb.create_sheet(title)
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = head_font
+            cell.fill = head_fill
+            cell.alignment = Alignment(horizontal="center")
+        for row in rows:
+            ws.append(row)
+        for idx, header in enumerate(headers, start=1):
+            ws.column_dimensions[ws.cell(row=1, column=idx).column_letter].width = max(
+                14, min(40, len(header) + 6)
+            )
+
+    wb.remove(wb.active)
+
+    sheet(
+        "Ay Ozeti",
+        ["Donem", "Proje Adedi", "Ciro (TRY)", "Tahsilat (TRY)", "Bakiye (TRY)", "Net Kar (TRY)"],
+        [
+            [
+                report.ay,
+                report.proje_adet,
+                report.try_satis,
+                report.try_tahsilat,
+                report.try_bakiye,
+                report.try_net_kar,
+            ]
+        ],
+    )
+
+    sheet(
+        "Kur Bazinda",
+        ["Para Birimi", "Proje", "Ciro", "Tahsilat", "Bakiye", "Net Kar", "Kur (TRY)", "Ciro (TRY)"],
+        [
+            [
+                r.para_birimi,
+                r.proje_adet,
+                r.satis,
+                r.tahsilat,
+                r.bakiye,
+                r.net_kar,
+                rates.get(r.para_birimi, 0),
+                round(r.satis * rates.get(r.para_birimi, 0), 2),
+            ]
+            for r in report.kur_dagilimi
+        ],
+    )
+
+    sheet(
+        "Asama Ozeti",
+        ["Asama", "Proje Adedi", "Ciro (TRY)"],
+        [[a.label, a.adet, a.tutar] for a in report.asama_dagilimi],
+    )
+
+    sheet(
+        "Bayi Ozeti",
+        ["Firma", "Ulke", "Proje Adedi", "Ciro (TRY)", "Tahsilat (TRY)"],
+        [[b.firma, b.ulke, b.proje_adet, b.satis_try, b.tahsilat_try] for b in report.bayi_ozeti],
+    )
+
+    sheet(
+        "Projeler",
+        [
+            "Proje Kodu",
+            "Firma",
+            "Musteri",
+            "Tarih",
+            "Asama",
+            "Para Birimi",
+            "Ciro",
+            "Tahsilat",
+            "Bakiye",
+            "Ciro (TRY)",
+        ],
+        [
+            [
+                p.proje_kodu,
+                p.firma,
+                p.musteri,
+                p.proje_tarihi,
+                labels.get(p.durum, p.durum),
+                p.para_birimi,
+                f"{p.muhasebe.transfer_dahil_toplam_satis:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.toplam_tahsilat:.2f} {p.para_birimi}".strip(),
+                f"{p.muhasebe.kalan_bakiye:.2f} {p.para_birimi}".strip(),
+                round(
+                    _to_try(p.muhasebe.transfer_dahil_toplam_satis, p.para_birimi, rates), 2
+                ),
+            ]
+            for p in sorted(projects, key=lambda x: x.proje_tarihi or "")
+        ],
+    )
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="pergola-aylik-{report.ay}.xlsx"'},
     )

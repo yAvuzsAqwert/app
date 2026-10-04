@@ -37,9 +37,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/lib/usePermissions";
 
 export default function Dealers() {
   const qc = useQueryClient();
+  const { can } = usePermissions();
   const [arama, setArama] = useState("");
   const [acik, setAcik] = useState<string | null>(null);
   const [portalFor, setPortalFor] = useState<DealerCard | null>(null);
@@ -183,6 +185,7 @@ export default function Dealers() {
                       a.href = url;
                       a.click();
                     }}
+                    disabled={!can("rapor:disaari")}
                     data-testid={`dealer-statement-${d.firma}`}
                   >
                     <FileSpreadsheet className="mr-2 h-4 w-4" /> Ekstre (Excel)
@@ -237,6 +240,7 @@ export default function Dealers() {
                         setPSifre("");
                         setPYetkili("");
                       }}
+                      disabled={!can("portal:yonet")}
                       data-testid={`portal-account-add-${d.firma}`}
                     >
                       <KeyRound className="mr-2 h-4 w-4" /> Portal Hesabı Ver

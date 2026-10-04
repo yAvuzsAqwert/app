@@ -13,6 +13,7 @@ from reportlab.pdfgen import canvas
 from lib.auth import current_user
 from lib.catalog import stage_labels
 from lib.db import db
+from lib.permissions import require
 from routers.proforma import _register_fonts
 
 router = APIRouter(tags=["labels"])
@@ -125,7 +126,7 @@ def _draw_label(c: canvas.Canvas, x: float, y: float, project: dict, crate: dict
 
 
 @router.get("/projects/{proje_id}/sandik-etiketleri")
-async def crate_labels(proje_id: str, user: dict = Depends(current_user)):
+async def crate_labels(proje_id: str, user: dict = Depends(require("proforma:olustur"))):
     project = await db.projects.find_one({"id": proje_id})
     if not project:
         raise HTTPException(status_code=404, detail="Proje bulunamadı")

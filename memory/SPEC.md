@@ -107,3 +107,29 @@ memory/test_credentials.md içinde.
   Excel raporunda yeni "Para Birimi Dagilimi" sayfası, Projeler sayfasında tutar kolonları
   para birimi etiketli (örn. "43400.00 EUR"), Proje Kalemleri sayfasında para birimi +
   birim fiyat/satır tutarı para birimli.
+
+## Sürüm 5 — Yetkilendirme, kur çevirisi, aylık rapor, portal evrakları
+- **Rol tabanlı yetkilendirme** (`backend/lib/permissions.py`, `routers/admin.py`,
+  `frontend/src/pages/Users.tsx`, `/kullanicilar`): 20 yetki kodu, 5 hazır rol
+  (admin / satis / uretim / muhasebe / izleyici). Roller `roles` koleksiyonunda,
+  yetkiler ekrandan işaretlenerek düzenlenir; **admin rolü daima tüm yetkilere sahiptir
+  ve kilitlidir (PUT /roles/admin → 409)**. Kullanıcı `rol` alanı taşır; rol her istekte
+  veritabanından okunur (istemciden asla). Yetkisiz işlem → 403, varsayılan reddet.
+  Korumalar: en az bir admin kalmalı, kendi hesabını silemez.
+  Endpointler: `GET /api/permissions`, `GET/PUT /api/roles[/{kod}]`,
+  `GET/POST /api/users`, `PUT /api/users/{id}/rol`, `DELETE /api/users/{id}`,
+  `GET /api/my-permissions`. Arayüz (menü + butonlar) `usePermissions().can()` ile sadeleşir,
+  gerçek kontrol sunucudadır.
+- **Döviz kuru** (`GET /api/kurlar`, `PUT /api/kurlar` → `kur:yonet`): elle girilen TRY bazlı
+  kurlar (`rates` koleksiyonu, 1 birim = kaç TRY). Tanımlar sayfasının altındaki
+  "Döviz Kurları" kartından güncellenir.
+- **Aylık rapor** (`GET /api/reports/monthly?ay=YYYY-MM`, `/monthly/export`, sayfa `/aylik-rapor`):
+  kur bazında ciro/tahsilat/bakiye/kar + kurlarla hesaplanan TRY karşılığı özet toplam,
+  aşama özeti, bayi özeti; Excel 5 sayfa (Ay Ozeti, Kur Bazinda, Asama Ozeti, Bayi Ozeti,
+  Projeler). Kuru girilmemiş para birimleri `eksik_kurlar` ile uyarı olarak gösterilir.
+- **Portal evrakları**: bayi kendi projelerinin proformasını (`GET /api/portal/projeler/{kod}/proforma`,
+  revizyon kaydı oluşturmaz) ve yalnızca "Çizim" kategorisindeki evraklarını
+  (`GET /api/portal/evraklar`, `/portal/evraklar/{id}/indir`) indirebilir.
+  Başka bayinin kaydı 404 döner (varlık sızdırmaz).
+- Kendi kendine kayıt (`POST /api/auth/register`) artık **izleyici** rolüyle açılır;
+  yetkiyi admin `/kullanicilar` ekranından yükseltir.

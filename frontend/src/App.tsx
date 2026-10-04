@@ -8,6 +8,8 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import Dealers from "@/pages/Dealers";
 import Settings from "@/pages/Settings";
 import DailyReport from "@/pages/DailyReport";
+import MonthlyReport from "@/pages/MonthlyReport";
+import Users from "@/pages/Users";
 import Portal from "@/pages/Portal";
 import PortalLogin from "@/pages/PortalLogin";
 
@@ -66,6 +68,22 @@ export default function App() {
           element={
             <Protected>
               <DailyReport />
+            </Protected>
+          }
+        />
+        <Route
+          path="/aylik-rapor"
+          element={
+            <Protected>
+              <MonthlyReport />
+            </Protected>
+          }
+        />
+        <Route
+          path="/kullanicilar"
+          element={
+            <Protected>
+              <Users />
             </Protected>
           }
         />

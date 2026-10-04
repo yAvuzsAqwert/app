@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from lib.auth import current_user
 from lib.dates import today_iso
+from lib.permissions import require
 from lib.db import db
 from models.schemas import Activity, ProformaVersion, RevisionInput
 
@@ -92,13 +93,13 @@ async def list_revisions(proje_id: str, user: dict = Depends(current_user)):
 
 @router.post("/projects/{proje_id}/revizyonlar", response_model=ProformaVersion)
 async def create_revision(
-    proje_id: str, payload: RevisionInput, user: dict = Depends(current_user)
+    proje_id: str, payload: RevisionInput, user: dict = Depends(require("revizyon:yonet"))
 ):
     return await snapshot(proje_id, "manuel", payload.aciklama.strip(), user)
 
 
 @router.delete("/revizyonlar/{version_id}")
-async def delete_revision(version_id: str, user: dict = Depends(current_user)):
+async def delete_revision(version_id: str, user: dict = Depends(require("revizyon:yonet"))):
     row = await db.proforma_versions.find_one({"id": version_id})
     if not row:
         raise HTTPException(status_code=404, detail="Revizyon bulunamadı")

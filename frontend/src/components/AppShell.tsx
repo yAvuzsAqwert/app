@@ -1,21 +1,26 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FolderKanban, CalendarRange, LogOut, Sun, Search, Building2, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, FolderKanban, CalendarRange, CalendarDays, LogOut, Sun, Search, Building2, SlidersHorizontal, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { endSession } from "@/lib/session";
 import { useAuth } from "@/lib/useAuth";
+import { usePermissions } from "@/lib/usePermissions";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/panel", label: "Komuta Paneli", icon: LayoutDashboard, testid: "nav-dashboard" },
-  { to: "/projeler", label: "Projeler", icon: FolderKanban, testid: "nav-projects" },
-  { to: "/bayiler", label: "Bayi Kartları", icon: Building2, testid: "nav-dealers" },
-  { to: "/rapor", label: "Günlük Rapor", icon: CalendarRange, testid: "nav-report" },
-  { to: "/tanimlar", label: "Tanımlar", icon: SlidersHorizontal, testid: "nav-settings" },
+  { to: "/panel", label: "Komuta Paneli", icon: LayoutDashboard, testid: "nav-dashboard", perm: "" },
+  { to: "/projeler", label: "Projeler", icon: FolderKanban, testid: "nav-projects", perm: "proje:goruntule" },
+  { to: "/bayiler", label: "Bayi Kartları", icon: Building2, testid: "nav-dealers", perm: "bayi:goruntule" },
+  { to: "/rapor", label: "Günlük Rapor", icon: CalendarRange, testid: "nav-report", perm: "rapor:goruntule" },
+  { to: "/aylik-rapor", label: "Aylık Rapor", icon: CalendarDays, testid: "nav-monthly", perm: "rapor:goruntule" },
+  { to: "/tanimlar", label: "Tanımlar", icon: SlidersHorizontal, testid: "nav-settings", perm: "tanim:yonet" },
+  { to: "/kullanicilar", label: "Kullanıcılar & Yetkiler", icon: ShieldCheck, testid: "nav-users", perm: "kullanici:yonet" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { can, rolLabel } = usePermissions();
   const navigate = useNavigate();
+  const nav = NAV.filter((n) => !n.perm || can(n.perm));
 
   const logout = async () => {
     await endSession();
@@ -38,7 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
-          {NAV.map(({ to, label, icon: Icon, testid }) => (
+          {nav.map(({ to, label, icon: Icon, testid }) => (
             <NavLink
               key={to}
               to={to}
@@ -66,6 +71,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <p className="truncate font-mono text-[11px] text-muted-foreground">
               {user?.email ?? ""}
             </p>
+            <p
+              className="mt-1 font-mono text-[10px] uppercase tracking-widest text-primary"
+              data-testid="sidebar-user-role"
+            >
+              {rolLabel || "—"}
+            </p>
           </div>
           <Button
             variant="ghost"
@@ -83,7 +94,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between gap-4 border-b border-border bg-sidebar/60 px-5 py-3 lg:hidden">
           <span className="font-heading text-sm font-bold">PERGOLA TAKİP</span>
           <div className="flex gap-1">
-            {NAV.map(({ to, icon: Icon, testid }) => (
+            {nav.map(({ to, icon: Icon, testid }) => (
               <NavLink key={to} to={to} data-testid={`${testid}-mobile`}>
                 {({ isActive }) => (
                   <Button variant={isActive ? "secondary" : "ghost"} size="icon-sm">

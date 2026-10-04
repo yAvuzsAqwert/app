@@ -81,6 +81,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useOptions } from "@/lib/useCatalogs";
 import CatalogSelect from "@/components/CatalogSelect";
+import { usePermissions } from "@/lib/usePermissions";
 
 function errText(err: unknown) {
   if (err instanceof ApiError) {
@@ -138,6 +139,7 @@ export default function ProjectDetail() {
   const detail = isError ? null : data;
   const project = detail?.project;
   const stageList = useOptions("asama");
+  const { can } = usePermissions();
 
   const [info, setInfo] = useState<ProjectPayload | null>(null);
   const [muh, setMuh] = useState<Muhasebe | null>(null);
@@ -395,7 +397,7 @@ export default function ProjectDetail() {
         <Button
           size="sm"
           onClick={() => proforma.mutate()}
-          disabled={proforma.isPending}
+          disabled={proforma.isPending || !can("proforma:olustur")}
           data-testid="proforma-download-button"
         >
           <FileDown className="mr-2 h-4 w-4" />
@@ -476,7 +478,7 @@ export default function ProjectDetail() {
               <Dialog open={itemOpen} onOpenChange={setItemOpen}>
                 <DialogTrigger
                   render={
-                    <Button size="sm" data-testid="add-item-button">
+                    <Button size="sm" data-testid="add-item-button" disabled={!can("kalem:yonet")}>
                       <Plus className="mr-2 h-4 w-4" /> Kalem Ekle
                     </Button>
                   }
@@ -721,7 +723,7 @@ export default function ProjectDetail() {
                 <div className="sm:col-span-2">
                   <Button
                     onClick={() => saveMuh.mutate()}
-                    disabled={saveMuh.isPending}
+                    disabled={!can("muhasebe:duzenle") || saveMuh.isPending}
                     className="w-full"
                     data-testid="save-accounting-button"
                   >
@@ -799,7 +801,7 @@ export default function ProjectDetail() {
                   size="sm"
                   variant="outline"
                   onClick={() => crateLabels.mutate()}
-                  disabled={crateLabels.isPending}
+                  disabled={crateLabels.isPending || !can("proforma:olustur")}
                   data-testid="crate-labels-button"
                 >
                   <Tags className="mr-2 h-4 w-4" />
@@ -808,7 +810,7 @@ export default function ProjectDetail() {
                 <Dialog open={crateOpen} onOpenChange={setCrateOpen}>
                   <DialogTrigger
                     render={
-                      <Button size="sm" data-testid="add-crate-button">
+                      <Button size="sm" data-testid="add-crate-button" disabled={!can("sandik:yonet")}>
                         <Plus className="mr-2 h-4 w-4" /> Sandık Ekle
                       </Button>
                     }
@@ -952,7 +954,7 @@ export default function ProjectDetail() {
                 {infoField("beyanname_no", "Beyanname No")}
                 <Button
                   onClick={() => saveInfo.mutate()}
-                  disabled={saveInfo.isPending}
+                  disabled={saveInfo.isPending || !can("proje:duzenle")}
                   data-testid="save-shipping-button"
                 >
                   <Save className="mr-2 h-4 w-4" />
@@ -1056,7 +1058,7 @@ export default function ProjectDetail() {
               <div className="sm:col-span-2 xl:col-span-3">
                 <Button
                   onClick={() => saveInfo.mutate()}
-                  disabled={saveInfo.isPending}
+                  disabled={saveInfo.isPending || !can("proje:duzenle")}
                   data-testid="save-info-button"
                 >
                   <Save className="mr-2 h-4 w-4" />
@@ -1196,7 +1198,7 @@ export default function ProjectDetail() {
                 </div>
                 <Button
                   className="w-full"
-                  disabled={!dosya || upload.isPending}
+                  disabled={!dosya || upload.isPending || !can("evrak:yukle")}
                   onClick={() => upload.mutate()}
                   data-testid="upload-document-button"
                 >
@@ -1280,7 +1282,7 @@ export default function ProjectDetail() {
                   <Button
                     className="w-full"
                     variant="outline"
-                    disabled={saveRevision.isPending}
+                    disabled={saveRevision.isPending || !can("revizyon:yonet")}
                     onClick={() => saveRevision.mutate()}
                     data-testid="save-revision-button"
                   >

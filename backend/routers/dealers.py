@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from lib.auth import current_user
 from lib.db import db
+from lib.permissions import require
 from models.schemas import STAGE_LABELS, STAGES, DealerCard, Project, StageCount
 
 router = APIRouter(tags=["dealers"])
@@ -72,13 +73,13 @@ def _build_cards(projects: List[Project]) -> List[DealerCard]:
 
 
 @router.get("/dealers", response_model=List[DealerCard])
-async def list_dealers(user: dict = Depends(current_user)):
+async def list_dealers(user: dict = Depends(require("bayi:goruntule"))):
     docs = await db.projects.find().to_list(1000)
     return _build_cards([Project(**_aware(d)) for d in docs])
 
 
 @router.get("/dealers/{anahtar}", response_model=DealerCard)
-async def get_dealer(anahtar: str, user: dict = Depends(current_user)):
+async def get_dealer(anahtar: str, user: dict = Depends(require("bayi:goruntule"))):
     docs = await db.projects.find().to_list(1000)
     for card in _build_cards([Project(**_aware(d)) for d in docs]):
         if card.anahtar == anahtar:

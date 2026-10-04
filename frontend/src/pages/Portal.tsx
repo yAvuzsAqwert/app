@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Sun, LogOut, ShieldCheck } from "lucide-react";
+import { Sun, LogOut, ShieldCheck, FileText, Download, Image as ImageIcon } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api";
-import type { PortalSummary } from "@/lib/types";
+import type { PortalSummary, PortalDocument } from "@/lib/types";
 import { fmtDate, fmtMoney } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,12 @@ export default function Portal() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["portal", "ozet"],
     queryFn: () => apiGet<PortalSummary>("/portal/ozet"),
+    retry: false,
+  });
+
+  const { data: docs } = useQuery({
+    queryKey: ["portal", "evraklar"],
+    queryFn: () => apiGet<PortalDocument[]>("/portal/evraklar"),
     retry: false,
   });
 
@@ -120,6 +126,7 @@ export default function Portal() {
                     <TableHead className="text-right">Tahsilat</TableHead>
                     <TableHead className="text-right">Bakiye</TableHead>
                     <TableHead>Ödeme</TableHead>
+                    <TableHead className="text-right">Evraklar</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,6 +162,34 @@ export default function Portal() {
                       <TableCell className="text-xs">
                         {ODEME[p.odeme_durumu] ?? p.odeme_durumu}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const a = document.createElement("a");
+                              a.href = `/api/portal/projeler/${encodeURIComponent(
+                                p.proje_kodu,
+                              )}/proforma`;
+                              a.click();
+                            }}
+                            data-testid={`portal-proforma-${p.proje_kodu}`}
+                          >
+                            <FileText className="mr-1.5 h-3.5 w-3.5" /> Proforma
+                          </Button>
+                          {(docs ?? []).filter((d) => d.proje_kodu === p.proje_kodu).length ? (
+                            <Badge
+                              variant="secondary"
+                              className="font-mono text-[10px]"
+                              data-testid={`portal-doc-count-${p.proje_kodu}`}
+                            >
+                              {(docs ?? []).filter((d) => d.proje_kodu === p.proje_kodu).length}{" "}
+                              çizim
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -162,6 +197,49 @@ export default function Portal() {
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 Adınıza kayıtlı proje bulunmuyor.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6" data-testid="portal-documents-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ImageIcon className="h-4 w-4 text-primary" /> Teknik Çizimlerim ({docs?.length ?? 0})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {docs?.length ? (
+              docs.map((d) => (
+                <div
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-secondary/20 p-3"
+                  data-testid={`portal-doc-${d.id}`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">{d.dosya_adi}</p>
+                    <p className="font-mono text-[11px] text-muted-foreground">
+                      {d.proje_kodu} · {(d.boyut / 1024).toFixed(0)} KB ·{" "}
+                      {d.aciklama || "açıklama yok"}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = `/api/portal/evraklar/${d.id}/indir`;
+                      a.click();
+                    }}
+                    data-testid={`portal-doc-download-${d.id}`}
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" /> İndir
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Projelerinize yüklenmiş teknik çizim bulunmuyor.
               </p>
             )}
           </CardContent>

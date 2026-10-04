@@ -8,14 +8,17 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi.responses import StreamingResponse
 
 from lib.auth import current_user, hash_password, verify_password
 from lib.catalog import stage_labels
+from lib.permissions import require
 from lib.db import db
 from models.schemas import (
     DealerAccount,
     DealerAccountCreate,
     LoginInput,
+    PortalDocument,
     PortalProject,
     PortalSummary,
     Project,
@@ -49,13 +52,13 @@ async def current_dealer(bayi_session: str | None = Cookie(default=None)) -> dic
 
 # ---------- ekip tarafı: portal hesabı yönetimi ----------
 @router.get("/dealer-accounts", response_model=List[DealerAccount])
-async def list_accounts(user: dict = Depends(current_user)):
+async def list_accounts(user: dict = Depends(require("portal:yonet"))):
     rows = await db.dealer_accounts.find().sort("created_at", -1).to_list(500)
     return [DealerAccount(**_aware(r)) for r in rows]
 
 
 @router.post("/dealer-accounts", response_model=DealerAccount)
-async def create_account(payload: DealerAccountCreate, user: dict = Depends(current_user)):
+async def create_account(payload: DealerAccountCreate, user: dict = Depends(require("portal:yonet"))):
     email = payload.email.lower().strip()
     if not payload.firma.strip():
         raise HTTPException(status_code=400, detail="Firma adı zorunlu")
@@ -76,7 +79,7 @@ async def create_account(payload: DealerAccountCreate, user: dict = Depends(curr
 
 
 @router.delete("/dealer-accounts/{account_id}")
-async def delete_account(account_id: str, user: dict = Depends(current_user)):
+async def delete_account(account_id: str, user: dict = Depends(require("portal:yonet"))):
     row = await db.dealer_accounts.find_one({"id": account_id})
     if not row:
         raise HTTPException(status_code=404, detail="Portal hesabı bulunamadı")
@@ -165,4 +168,89 @@ async def portal_summary(account: dict = Depends(current_dealer)):
         toplam_tahsilat=round(sum(r.tahsilat for r in rows), 2),
         acik_bakiye=round(sum(r.bakiye for r in rows), 2),
         projeler=rows,
+    )
+
+
+# ---------- portal evrakları (salt okunur indirme) ----------
+async def _dealer_projects(account: dict) -> list[dict]:
+    query: dict = {"firma": account["firma"]}
+    if account.get("ulke"):
+        query["ulke"] = account["ulke"]
+    return await db.projects.find(query).to_list(1000)
+
+
+@router.get("/portal/evraklar", response_model=List[PortalDocument])
+async def portal_documents(account: dict = Depends(current_dealer)):
+    """Bayinin yalnızca kendi projelerindeki 'Çizim' evrakları."""
+    projects = await _dealer_projects(account)
+    code_by_id = {p["id"]: p.get("proje_kodu", "") for p in projects}
+    if not code_by_id:
+        return []
+    rows = (
+        await db.documents.find(
+            {"proje_id": {"$in": list(code_by_id)}, "kategori": "cizim"}
+        )
+        .sort("created_at", -1)
+        .to_list(300)
+    )
+    return [
+        PortalDocument(
+            id=r["id"],
+            proje_kodu=code_by_id.get(r["proje_id"], ""),
+            dosya_adi=r.get("dosya_adi", ""),
+            kategori=r.get("kategori", ""),
+            boyut=r.get("boyut", 0),
+            aciklama=r.get("aciklama", ""),
+            created_at=_aware(r)["created_at"],
+        )
+        for r in rows
+    ]
+
+
+@router.get("/portal/evraklar/{doc_id}/indir")
+async def portal_download(doc_id: str, account: dict = Depends(current_dealer)):
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+
+    meta = await db.documents.find_one({"id": doc_id, "kategori": "cizim"})
+    if not meta:
+        raise HTTPException(status_code=404, detail="Evrak bulunamadı")
+    own_ids = {p["id"] for p in await _dealer_projects(account)}
+    if meta["proje_id"] not in own_ids:
+        # Başka bayinin evrakının varlığını sızdırmamak için 404
+        raise HTTPException(status_code=404, detail="Evrak bulunamadı")
+    bucket = AsyncIOMotorGridFSBucket(db, bucket_name="evraklar")
+    try:
+        stream = await bucket.open_download_stream(ObjectId(meta["file_id"]))
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Dosya içeriği bulunamadı") from exc
+    data = await stream.read()
+    return StreamingResponse(
+        iter([data]),
+        media_type=meta.get("content_type") or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="evrak-{doc_id}"'},
+    )
+
+
+@router.get("/portal/projeler/{proje_kodu}/proforma")
+async def portal_proforma(proje_kodu: str, account: dict = Depends(current_dealer)):
+    """Bayi kendi projesinin proformasını indirir — revizyon kaydı oluşturmaz."""
+    from lib.catalog import stage_labels
+    from routers.proforma import _build_proforma_pdf
+
+    project = next(
+        (p for p in await _dealer_projects(account) if p.get("proje_kodu") == proje_kodu), None
+    )
+    if not project:
+        raise HTTPException(status_code=404, detail="Proje bulunamadı")
+    items = (
+        await db.project_items.find({"proje_id": project["id"]})
+        .sort("created_at", 1)
+        .to_list(500)
+    )
+    buf = await _build_proforma_pdf(project, items, await stage_labels())
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="proforma-{proje_kodu}.pdf"'},
     )

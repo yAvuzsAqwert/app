@@ -48,6 +48,7 @@ class User(BaseModel):
     id: str = Field(default_factory=_uid)
     email: str
     ad_soyad: str
+    rol: str = "satis"
     created_at: datetime = Field(default_factory=now_utc)
 
 
@@ -440,3 +441,85 @@ class PortalSummary(BaseModel):
     toplam_tahsilat: float
     acik_bakiye: float
     projeler: List[PortalProject]
+
+
+# ---------- yetkilendirme ----------
+class Role(BaseModel):
+    kod: str
+    label: str
+    yetkiler: List[str] = Field(default_factory=list)
+    sistem: bool = False
+
+
+class RolePermissionUpdate(BaseModel):
+    yetkiler: List[str]
+
+
+class UserAccount(BaseModel):
+    id: str
+    email: str
+    ad_soyad: str
+    rol: str
+    created_at: datetime
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    sifre: str = Field(min_length=6)
+    ad_soyad: str = Field(min_length=2)
+    rol: str = "satis"
+
+
+class UserRoleUpdate(BaseModel):
+    rol: str
+
+
+# ---------- döviz kuru ----------
+class ExchangeRate(BaseModel):
+    para_birimi: str
+    kur: float  # 1 birim = kaç TRY
+    guncellenme: datetime = Field(default_factory=now_utc)
+    guncelleyen: str = ""
+
+
+class RateRow(BaseModel):
+    para_birimi: str
+    kur: float
+
+
+class RateInput(BaseModel):
+    kurlar: List[RateRow]
+
+
+# ---------- aylık rapor ----------
+class DealerMonthRow(BaseModel):
+    firma: str
+    ulke: str
+    proje_adet: int
+    satis_try: float
+    tahsilat_try: float
+
+
+class MonthlyReport(BaseModel):
+    ay: str  # YYYY-MM
+    proje_adet: int
+    kur_dagilimi: List[CurrencyTotal]
+    try_satis: float
+    try_tahsilat: float
+    try_bakiye: float
+    try_net_kar: float
+    kurlar: List[ExchangeRate]
+    eksik_kurlar: List[str]
+    asama_dagilimi: List[StageCount]
+    bayi_ozeti: List[DealerMonthRow]
+
+
+# ---------- portal evrakları ----------
+class PortalDocument(BaseModel):
+    id: str
+    proje_kodu: str
+    dosya_adi: str
+    kategori: str
+    boyut: int
+    aciklama: str = ""
+    created_at: datetime
