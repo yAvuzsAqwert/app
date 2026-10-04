@@ -1,12 +1,13 @@
 """Project pipeline routes: projects, items (kalemler), crates (sandıklar), accounting, activity."""
 
 from datetime import date, datetime, timezone
+import re
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lib.auth import current_user
-from lib.permissions import require
+from lib.permissions import require, user_permissions
 from lib.catalog import stage_keys, stage_labels
 from lib.dates import today_iso
 from lib.db import db
@@ -128,6 +129,14 @@ async def _refresh_item_count(proje_id: str) -> None:
     )
 
 
+async def _mask(project: Project, user: dict) -> Project:
+    """muhasebe:goruntule yetkisi olmayan kullanıcıya finansal alanlar sıfırlanır."""
+    if "muhasebe:goruntule" in await user_permissions(user):
+        return project
+    project.muhasebe = Muhasebe()
+    return project
+
+
 # ---------------- projects ----------------
 @router.get("/projects", response_model=List[Project])
 async def list_projects(
@@ -135,7 +144,7 @@ async def list_projects(
     arsiv: Optional[bool] = Query(default=None),
     satis_tipi: Optional[str] = Query(default=None),
     q: Optional[str] = Query(default=None),
-    user: dict = Depends(current_user),
+    user: dict = Depends(require("proje:goruntule")),
 ):
     query: dict = {}
     if durum:
@@ -145,6 +154,7 @@ async def list_projects(
     if satis_tipi:
         query["satis_tipi"] = satis_tipi
     if q:
+        q = re.escape(q[:80])
         query["$or"] = [
             {"proje_kodu": {"$regex": q, "$options": "i"}},
             {"proje_adi": {"$regex": q, "$options": "i"}},
@@ -154,7 +164,14 @@ async def list_projects(
             {"konteyner_no": {"$regex": q, "$options": "i"}},
         ]
     docs = await db.projects.find(query).sort("proje_tarihi", -1).to_list(500)
-    return [Project(**_aware(d)) for d in docs]
+    gorunur = "muhasebe:goruntule" in await user_permissions(user)
+    out = []
+    for d in docs:
+        p = Project(**_aware(d))
+        if not gorunur:
+            p.muhasebe = Muhasebe()
+        out.append(p)
+    return out
 
 
 @router.post("/projects", response_model=Project)
@@ -183,7 +200,7 @@ async def get_project(proje_id: str, user: dict = Depends(require("proje:goruntu
     crates = await db.project_crates.find({"proje_id": proje_id}).sort("created_at", 1).to_list(500)
     acts = await db.activities.find({"proje_id": proje_id}).sort("created_at", -1).to_list(300)
     return ProjectDetail(
-        project=Project(**doc),
+        project=await _mask(Project(**doc), user),
         kalemler=[ProjectItem(**_aware(i)) for i in items],
         sandiklar=[ProjectCrate(**_aware(c)) for c in crates],
         hareketler=[Activity(**_aware(a)) for a in acts],
@@ -424,15 +441,27 @@ async def dashboard(user: dict = Depends(current_user)):
     acts = await db.activities.find().sort("created_at", -1).to_list(15)
     uyarilar = build_alerts(aktif)
 
+    finans = "muhasebe:goruntule" in await user_permissions(user)
+    if not finans:
+        # Yetkisiz kullanıcıya hiçbir finansal kırılım sızmaz (adetler kalır).
+        for row in asamalar + para:
+            row.tutar = 0.0
+        yaklasan = [p.model_copy(update={"muhasebe": Muhasebe()}) for p in yaklasan]
     return DashboardStats(
         toplam_proje=len(projects),
         aktif_proje=len(aktif),
         arsiv_proje=len(projects) - len(aktif),
-        toplam_satis=round(sum(p.muhasebe.transfer_dahil_toplam_satis for p in projects), 2),
-        toplam_tahsilat=round(sum(p.muhasebe.toplam_tahsilat for p in projects), 2),
-        kalan_bakiye=round(sum(p.muhasebe.kalan_bakiye for p in projects), 2),
-        net_kar=round(sum(p.muhasebe.net_kar for p in projects), 2),
-        ortalama_kar_yuzdesi=round(sum(kar_list) / len(kar_list), 2) if kar_list else 0.0,
+        toplam_satis=round(sum(p.muhasebe.transfer_dahil_toplam_satis for p in projects), 2)
+        if finans
+        else 0.0,
+        toplam_tahsilat=round(sum(p.muhasebe.toplam_tahsilat for p in projects), 2)
+        if finans
+        else 0.0,
+        kalan_bakiye=round(sum(p.muhasebe.kalan_bakiye for p in projects), 2) if finans else 0.0,
+        net_kar=round(sum(p.muhasebe.net_kar for p in projects), 2) if finans else 0.0,
+        ortalama_kar_yuzdesi=(round(sum(kar_list) / len(kar_list), 2) if kar_list else 0.0)
+        if finans
+        else 0.0,
         asamalar=asamalar,
         para_birimi_dagilimi=para,
         yaklasan_sevkiyatlar=yaklasan,

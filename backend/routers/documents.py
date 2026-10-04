@@ -38,6 +38,14 @@ ALLOWED_EXT = {
 bucket = AsyncIOMotorGridFSBucket(db, bucket_name="evraklar")
 
 
+def _safe_name(name: str) -> str:
+    """Header değerini bozabilecek karakterleri temizler (ASCII-safe)."""
+    cleaned = "".join(
+        ch for ch in name.encode("ascii", "ignore").decode() if ch.isalnum() or ch in " .-_"
+    ).strip()
+    return cleaned or "evrak"
+
+
 def _aware(doc: dict) -> dict:
     value = doc.get("created_at")
     if isinstance(value, datetime) and value.tzinfo is None:
@@ -59,7 +67,7 @@ async def _log(proje_id: str, proje_kodu: str, mesaj: str, user: dict) -> None:
 
 
 @router.get("/projects/{proje_id}/evraklar", response_model=List[DocumentMeta])
-async def list_documents(proje_id: str, user: dict = Depends(current_user)):
+async def list_documents(proje_id: str, user: dict = Depends(require("evrak:goruntule"))):
     docs = await db.documents.find({"proje_id": proje_id}).sort("created_at", -1).to_list(200)
     return [DocumentMeta(**_aware(d)) for d in docs]
 
@@ -114,7 +122,7 @@ async def upload_document(
 
 
 @router.get("/evraklar/{doc_id}/indir")
-async def download_document(doc_id: str, user: dict = Depends(current_user)):
+async def download_document(doc_id: str, user: dict = Depends(require("evrak:goruntule"))):
     meta = await db.documents.find_one({"id": doc_id})
     if not meta:
         raise HTTPException(status_code=404, detail="Evrak bulunamadı")
@@ -126,7 +134,7 @@ async def download_document(doc_id: str, user: dict = Depends(current_user)):
     return StreamingResponse(
         iter([data]),
         media_type=meta.get("content_type") or "application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{meta["dosya_adi"]}"'},
+        headers={"Content-Disposition": f'attachment; filename="{_safe_name(meta.get("dosya_adi", "evrak"))}"'},
     )
 
 

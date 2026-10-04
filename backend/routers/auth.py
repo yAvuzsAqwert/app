@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 
+from lib.permissions import require
 from lib.auth import (
     COOKIE_NAME,
     create_session,
@@ -22,14 +23,15 @@ def _set_cookie(response: Response, token: str) -> None:
         token,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=True,
         max_age=60 * 60 * 24 * 30,
         path="/",
     )
 
 
 @router.post("/register", response_model=User)
-async def register(payload: RegisterInput, response: Response):
+async def register(payload: RegisterInput, admin: dict = Depends(require("kullanici:yonet"))):
+    """Açık kayıt kapalı — hesaplar yalnızca yetkili kullanıcı tarafından açılır."""
     email = payload.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=409, detail="Bu e-posta zaten kayıtlı")
@@ -37,7 +39,6 @@ async def register(payload: RegisterInput, response: Response):
     doc = user.model_dump()
     doc["sifre_hash"] = hash_password(payload.sifre)
     await db.users.insert_one(doc)
-    _set_cookie(response, await create_session(user.id))
     return user
 
 

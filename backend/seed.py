@@ -4,6 +4,8 @@ Run: cd /app/backend && python seed.py
 """
 
 import asyncio
+import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from lib.auth import hash_password
@@ -26,9 +28,12 @@ def d(offset: int) -> str:
     return (TODAY + timedelta(days=offset)).isoformat()
 
 
+# Demo hesap şifreleri koda yazılmaz; SEED_PASSWORD yoksa rastgele üretilir ve basılır.
+SEED_PASSWORD = os.environ.get("SEED_PASSWORD") or secrets.token_urlsafe(12)
+
 USERS = [
-    ("admin@pergola.com", "pergola123", "Ahmet Yılmaz"),
-    ("ekip@pergola.com", "pergola123", "Elif Demir"),
+    ("admin@pergola.com", SEED_PASSWORD, "Ahmet Yılmaz", "admin"),
+    ("ekip@pergola.com", SEED_PASSWORD, "Elif Demir", "satis"),
 ]
 
 PROJECTS = [
@@ -296,16 +301,18 @@ async def main() -> None:
         await db[coll].delete_many({})
     await ensure_indexes()
 
-    for email, sifre, ad in USERS:
+    for email, sifre, ad, rol in USERS:
         await db.users.insert_one(
             {
                 "id": __import__("uuid").uuid4().hex,
                 "email": email,
                 "ad_soyad": ad,
+                "rol": rol,
                 "created_at": datetime.now(timezone.utc),
                 "sifre_hash": hash_password(sifre),
             }
         )
+    print(f"Demo hesap şifresi: {SEED_PASSWORD}")
 
     year = TODAY.year
     for idx, p in enumerate(PROJECTS, start=1):

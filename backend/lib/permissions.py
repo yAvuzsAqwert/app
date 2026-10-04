@@ -21,6 +21,7 @@ PERMISSIONS: dict[str, str] = {
     "sandik:yonet": "Sandık / sevkiyat kayıtlarını yönet",
     "muhasebe:goruntule": "Muhasebe ve tahsilatı görüntüle",
     "muhasebe:duzenle": "Muhasebe ve tahsilatı düzenle",
+    "evrak:goruntule": "Evrakları görüntüle / indir",
     "evrak:yukle": "Evrak yükle",
     "evrak:sil": "Evrak sil",
     "proforma:olustur": "Proforma PDF / etiket oluştur",
@@ -48,6 +49,7 @@ ROLE_DEFAULTS: dict[str, tuple[str, list[str]]] = {
             "asama:degistir",
             "kalem:yonet",
             "muhasebe:goruntule",
+            "evrak:goruntule",
             "evrak:yukle",
             "proforma:olustur",
             "revizyon:yonet",
@@ -64,6 +66,7 @@ ROLE_DEFAULTS: dict[str, tuple[str, list[str]]] = {
             "asama:degistir",
             "kalem:yonet",
             "sandik:yonet",
+            "evrak:goruntule",
             "evrak:yukle",
             "proforma:olustur",
             "rapor:goruntule",
@@ -79,12 +82,13 @@ ROLE_DEFAULTS: dict[str, tuple[str, list[str]]] = {
             "rapor:disaari",
             "bayi:goruntule",
             "kur:yonet",
+            "evrak:goruntule",
             "evrak:yukle",
         ],
     ),
     "izleyici": (
         "Sadece Görüntüleme",
-        ["proje:goruntule", "rapor:goruntule", "bayi:goruntule"],
+        ["proje:goruntule", "rapor:goruntule"],
     ),
 }
 

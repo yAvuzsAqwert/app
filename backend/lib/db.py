@@ -27,6 +27,17 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("token", ASCENDING)], name="token", unique=True),
         IndexModel([("created_at", ASCENDING)], name="ttl", expireAfterSeconds=60 * 60 * 24 * 30),
     ],
+    "dealer_accounts": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("email", ASCENDING)], name="email", unique=True),
+    ],
+    "dealer_sessions": [
+        IndexModel([("token", ASCENDING)], name="token", unique=True),
+        IndexModel([("created_at", ASCENDING)], name="ttl", expireAfterSeconds=60 * 60 * 24 * 14),
+    ],
+    "roles": [IndexModel([("kod", ASCENDING)], name="kod", unique=True)],
+    "rates": [IndexModel([("para_birimi", ASCENDING)], name="para_birimi", unique=True)],
+    "settings": [IndexModel([("key", ASCENDING)], name="key", unique=True)],
     "projects": [
         IndexModel([("id", ASCENDING)], name="id", unique=True),
         IndexModel([("proje_kodu", ASCENDING)], name="proje_kodu", unique=True),

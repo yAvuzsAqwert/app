@@ -1,6 +1,7 @@
 """Daily report + XLSX export."""
 
 import io
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -571,9 +572,9 @@ async def monthly_report(
     user: dict = Depends(require("rapor:goruntule")),
 ):
     donem = ay or today_iso()[:7]
-    if len(donem) != 7 or donem[4] != "-":
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", donem):
         raise HTTPException(status_code=400, detail="Dönem YYYY-AA biçiminde olmalı")
-    docs = await db.projects.find({"proje_tarihi": {"$regex": f"^{donem}"}}).to_list(2000)
+    docs = await db.projects.find({"proje_tarihi": {"$regex": f"^{re.escape(donem)}"}}).to_list(2000)
     projects = [Project(**_aware(d)) for d in docs]
 
     rates = await _rates()

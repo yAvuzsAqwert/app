@@ -1,0 +1,111 @@
+{
+  "iteration": 1,
+  "summary": "All 8 acceptance criteria exercised via 7 backend pytest files + 7 browser checks. 14/14 artifacts passed.",
+  "passed": 14,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    "Minor note (not a bug per matrix wording): /api/dashboard 'asamalar' stage breakdown still returns non-zero 'tutar' for the izleyici (view-only) role even though toplam_satis/net_kar are correctly zeroed. The explicit criterion (toplam_satis/net_kar = 0) passes, but the per-stage tutar array is a residual financial leak worth a follow-up look if SEC-002 is meant to mask ALL financial figures, not just the top-line totals."
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Açık kayıt kapatıldı (SEC-001)",
+      "name": "test_tscheck_open_registration_closed.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/auth/register (anon) -> 401 {\"detail\":\"Oturum bulunamadı\"}; subsequent login with same creds -> 401 (no account created)"
+    },
+    {
+      "criterion": "Açık kayıt kapatıldı (SEC-001) - UI surface",
+      "name": "login-no-open-registration",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "/giris page body contains no 'kayıt ol' / 'demo şifre' text and 0 register links/buttons"
+    },
+    {
+      "criterion": "Admin girişi ve tam yetki",
+      "name": "test_tscheck_admin_login_full_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/auth/login (yavuz@diagonalventure.com) -> 200 rol=admin; GET /api/my-permissions -> 200 yetkiler.length == 21"
+    },
+    {
+      "criterion": "Admin girişi ve tam yetki - UI surface",
+      "name": "admin-login-full-menu",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Logged in as yavuz@diagonalventure.com, redirected to /panel; sidebar shows Kontrol Paneli, Projeler, Bayi Kartları, Günlük Rapor, Aylık Rapor, Tanımlar, Kullanıcılar & Yetkiler"
+    },
+    {
+      "criterion": "İzleyici rolü finansal veriyi göremez (SEC-002)",
+      "name": "test_tscheck_izleyici_financial_masking.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Created tscheck-izleyici-sec002@example.com (izleyici) via admin /api/users; as that user: GET /api/dashboard toplam_satis=0 net_kar=0; GET /api/projects?q=Nice muhasebe.satis=0; GET /api/projects/{id} muhasebe.satis=0; GET /api/dealers -> 403; GET /api/projects/{id}/evraklar -> 403; GET /api/evraklar/x/indir -> 403. Test user deleted after run."
+    },
+    {
+      "criterion": "İzleyici rolü finansal veriyi göremez (SEC-002) - UI surface",
+      "name": "izleyici-ui-hides-financials",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Admin created view-only user tscheck-izleyici-ui-1@example.com via /kullanicilar UI; logged in as that user, Kullanıcılar & Yetkiler menu absent, dashboard renders with Toplam Satış card visible (masked to 0 per backend test). Residual test user removed post-run via API."
+    },
+    {
+      "criterion": "Satış rolü yetkileri çalışıyor",
+      "name": "test_tscheck_satis_role_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/auth/login (ekip@pergola.com) -> 200 rol=satis; GET /api/my-permissions yetkiler excludes kullanici:yonet, muhasebe:duzenle, sandik:yonet; includes proforma:olustur, kalem:yonet"
+    },
+    {
+      "criterion": "Satış rolü yetkileri çalışıyor - UI surface",
+      "name": "satis-role-restricted-buttons",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Logged in as ekip@pergola.com: Kullanıcılar & Yetkiler menu absent (count=0); in project detail, 'Muhasebeyi Kaydet' button disabled, 'Sandık Ekle' button disabled, 'Kalem Ekle' button enabled"
+    },
+    {
+      "criterion": "Aylık rapor dönem doğrulaması (SEC-003)",
+      "name": "test_tscheck_monthly_report_period_validation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/reports/monthly?ay=2026- -> 400; ay=2026-13 -> 400; ay=2026-09 -> 200 with kur_dagilimi populated (3 currency rows) and try_satis present"
+    },
+    {
+      "criterion": "Aylık rapor dönem doğrulaması (SEC-003) - UI surface",
+      "name": "monthly-report-page-renders",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "/aylik-rapor page renders without error text, shows TRY-denominated summary cards, kur bazlı breakdown section present"
+    },
+    {
+      "criterion": "Proje aramasında regex injection yok",
+      "name": "test_tscheck_project_search_regex_safety.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/projects?q=((((a+)+)+)+)+$ -> 200 empty/normal list (no 500); GET /api/projects?q=Nice -> 200 includes PRG-2026-002"
+    },
+    {
+      "criterion": "Bayi portalı izolasyonu korunuyor",
+      "name": "test_tscheck_dealer_portal_isolation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/portal/login (bayi@natura.com) -> 200 firma=Anadolu Yapı A.Ş.; GET /api/portal/ozet projeler == [PRG-2026-005] only; GET /api/portal/projeler/PRG-2026-005/proforma -> 200 application/pdf; GET /api/portal/projeler/PRG-2026-001/proforma -> 404; GET /api/projects (portal cookie) -> 401"
+    },
+    {
+      "criterion": "Bayi portalı izolasyonu korunuyor - UI surface",
+      "name": "dealer-portal-shows-only-own-project",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "/bayi-giris login with bayi@natura.com succeeds; portal dashboard body contains PRG-2026-005 and does not contain PRG-2026-001 or PRG-2026-002"
+    },
+    {
+      "criterion": "Marka ve isim ayarları bozulmadı",
+      "name": "branding-and-settings-page",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Sidebar shows DIAGONAL logo and 'Kontrol Paneli' label after full render; /tanimlar page shows 'Program Adı' & 'Döviz Kurları' cards"
+    }
+  ]
+}

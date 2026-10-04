@@ -45,3 +45,21 @@ async def aclient():
 
 
 # --- app-specific fixtures below this line ---
+
+# Session cookies are issued with the `Secure` attribute, so httpx (unlike curl) will not
+# resend them over plain http://localhost. Auth-dependent tests must run against the public
+# https ingress URL, which proxies to this same backend/Mongo.
+PUBLIC_URL = os.environ.get("PUBLIC_APP_URL", "https://pergola-tracker.preview.emergentagent.com")
+PUBLIC_API_URL = f"{PUBLIC_URL}/api"
+
+
+@pytest.fixture
+def public_api_url() -> str:
+    return PUBLIC_API_URL
+
+
+@pytest.fixture
+def client():  # noqa: F811 - intentional override: auth cookies require https origin
+    """Sync httpx client rooted at the public https /api — required for Secure session cookies."""
+    with httpx.Client(base_url=PUBLIC_API_URL, timeout=30.0) as c:
+        yield c

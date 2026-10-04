@@ -143,3 +143,17 @@ memory/test_credentials.md içinde.
   → `tanim:yonet` yetkisi. Arayüzde `useBranding()` ile yan menü, giriş ekranı ve portal
   başlığı beslenir.
 - Menü ve sayfa başlığı "Komuta Paneli" → **"Kontrol Paneli"** olarak değiştirildi.
+
+## Güvenlik denetimi düzeltmeleri (sürüm 6.1)
+- Açık kayıt kapatıldı: `POST /api/auth/register` artık `kullanici:yonet` ister, oturum açmaz;
+  giriş ekranından kayıt/demo şifre paneli kaldırıldı.
+- Yeni yetki `evrak:goruntule`: evrak listeleme ve indirme bu yetkiyi ister (izleyici'de yok).
+- Finansal maskeleme: `muhasebe:goruntule` yetkisi olmayan kullanıcıya proje listesi/detayı ve
+  panel toplamlarında muhasebe alanları sıfır döner; `/api/dealers*` artık
+  `bayi:goruntule` + `muhasebe:goruntule` ister.
+- NoSQL regex sertleştirme: aylık rapor dönemi `^\d{4}-(0[1-9]|1[0-2])$` ile doğrulanır,
+  proje aramasında `re.escape` + 80 karakter sınırı.
+- Oturum çerezleri `Secure`, `CORS_ORIGINS` tek kaynağa sabitlendi, `dealer_sessions` 14 gün TTL,
+  evrak indirme `Content-Disposition` dosya adı ASCII-safe temizlenir.
+- `seed.py` şifreleri koddan kaldırıldı (`SEED_PASSWORD` env ya da rastgele); canlı demo
+  hesaplarının şifreleri döndürüldü ve tüm eski oturumlar iptal edildi.

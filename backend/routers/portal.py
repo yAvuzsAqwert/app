@@ -107,7 +107,7 @@ async def portal_login(payload: LoginInput, response: Response):
         token,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=True,
         max_age=60 * 60 * 24 * 14,
         path="/",
     )

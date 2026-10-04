@@ -25,16 +25,11 @@ function errText(err: unknown) {
 export default function Login() {
   const navigate = useNavigate();
   const { programAdi, logoVar, logoUrl } = useBranding();
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("admin@pergola.com");
-  const [sifre, setSifre] = useState("pergola123");
-  const [adSoyad, setAdSoyad] = useState("");
+  const [email, setEmail] = useState("");
+  const [sifre, setSifre] = useState("");
 
   const auth = useMutation({
-    mutationFn: async () =>
-      mode === "login"
-        ? apiPost<User>("/auth/login", { email, sifre })
-        : apiPost<User>("/auth/register", { email, sifre, ad_soyad: adSoyad }),
+    mutationFn: async () => apiPost<User>("/auth/login", { email, sifre }),
     onSuccess: (user) => {
       beginSession();
       toast.success(`Hoş geldiniz, ${user.ad_soyad}`);
@@ -100,12 +95,10 @@ export default function Login() {
         <div className="w-full max-w-sm animate-rise-in">
           <div className="mb-8">
             <h1 className="text-2xl font-bold">
-              {mode === "login" ? "Panele Giriş" : "Yeni Ekip Hesabı"}
+              Panele Giriş
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              {mode === "login"
-                ? "E-posta ve şifrenizle oturum açın."
-                : "Çalışma arkadaşınız için hesap oluşturun."}
+              E-posta ve şifrenizle oturum açın. Hesaplar yönetici tarafından oluşturulur.
             </p>
           </div>
 
@@ -117,19 +110,6 @@ export default function Login() {
               auth.mutate();
             }}
           >
-            {mode === "register" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="ad">Ad Soyad</Label>
-                <Input
-                  id="ad"
-                  value={adSoyad}
-                  onChange={(e) => setAdSoyad(e.target.value)}
-                  placeholder="Ahmet Yılmaz"
-                  required
-                  data-testid="register-name-input"
-                />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label htmlFor="email">E-posta</Label>
               <Input
@@ -159,23 +139,11 @@ export default function Login() {
               disabled={auth.isPending}
               data-testid="login-submit-button"
             >
-              {auth.isPending
-                ? "Kontrol ediliyor…"
-                : mode === "login"
-                  ? "Giriş Yap"
-                  : "Hesap Oluştur"}
+              {auth.isPending ? "Kontrol ediliyor…" : "Giriş Yap"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </form>
 
-          <button
-            type="button"
-            className="mt-5 text-sm text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-primary hover:underline"
-            onClick={() => setMode(mode === "login" ? "register" : "login")}
-            data-testid="toggle-auth-mode-button"
-          >
-            {mode === "login" ? "Yeni hesap oluştur" : "Zaten hesabım var, giriş yap"}
-          </button>
 
           <a
             href="/bayi-giris"
@@ -185,13 +153,6 @@ export default function Login() {
             Bayi misiniz? Bayi portalına giriş →
           </a>
 
-          <div className="mt-8 rounded-md border border-border bg-card p-4">
-            <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-              Demo Hesap
-            </p>
-            <p className="mt-1.5 font-mono text-xs text-foreground">admin@pergola.com</p>
-            <p className="font-mono text-xs text-foreground">pergola123</p>
-          </div>
         </div>
       </div>
     </div>

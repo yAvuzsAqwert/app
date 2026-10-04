@@ -1,0 +1,119 @@
+{
+  "iteration": 2,
+  "summary": "Retest of iteration_1 action item fix (full financial masking for izleyici role) plus re-run of all 7 prior backend tests + 7 browser checks. 16/16 artifacts passed (2 browser checks were flaky on first run due to a transient 429 rate-limit from running them in parallel, both passed clean on solo rerun).",
+  "passed": 16,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    "Fixed a latent fixture-cleanup gap in izleyici-ui-hides-financials.mjs: it created tscheck-izleyici-ui-1@example.com but never deleted it, leaving a 4th user in the DB after prior runs (violates seed_facts requirement that only the 3 named users remain). Removed the leftover user via admin API and added an end-of-check API cleanup step to the persisted script so future reruns self-clean.",
+    "Removed a stray satis-role-restricted-buttons.mjs.backup file left in .emergent/scripts/checks/ from a prior session (not supposed to persist)."
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Panel finansal kırılımı da maskelenir (iteration_1 action item fix) - izleyici asamalar/para_birimi_dagilimi/yaklasan_sevkiyatlar.muhasebe tam maskeleme, adet korunur",
+      "name": "test_tscheck_izleyici_financial_masking.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "As tscheck izleyici user: GET /api/dashboard -> asamalar[].tutar all == 0 (11 rows) while asamalar[].adet unchanged (e.g. teklif_proforma adet=1, paketleme adet=2); para_birimi_dagilimi[].tutar all == 0 (3 rows); yaklasan_sevkiyatlar[].muhasebe every numeric field (satis, alis, net_kar, kar_yuzdesi, odemeler[].tutar, etc.) == 0 across 8 shipments. toplam_satis/net_kar still 0 as before."
+    },
+    {
+      "criterion": "Panel finansal kırılımı da maskelenir - admin unaffected",
+      "name": "test_tscheck_izleyici_financial_masking.py::test_admin_dashboard_unaffected_by_masking",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Logged in as yavuz@diagonalventure.com -> GET /api/dashboard: toplam_satis=2252050.0 (>2,000,000 check), asamalar contains non-zero tutar rows (e.g. musteri_onayi=1835000.0) confirming admin view is untouched by the izleyici masking fix."
+    },
+    {
+      "criterion": "Açık kayıt kapatıldı (SEC-001)",
+      "name": "test_tscheck_open_registration_closed.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: POST /api/auth/register (anon) -> 401"
+    },
+    {
+      "criterion": "Açık kayıt kapatıldı (SEC-001) - UI surface",
+      "name": "login-no-open-registration",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check: /giris has no register form/links"
+    },
+    {
+      "criterion": "Admin girişi ve tam yetki",
+      "name": "test_tscheck_admin_login_full_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: login 200 rol=admin, /api/my-permissions yetkiler.length==21"
+    },
+    {
+      "criterion": "Admin girişi ve tam yetki - UI surface",
+      "name": "admin-login-full-menu",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check: full sidebar menu visible for admin"
+    },
+    {
+      "criterion": "İzleyici rolü finansal veriyi göremez (SEC-002) - UI surface",
+      "name": "izleyici-ui-hides-financials",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check (updated with self-cleanup step): viewer dashboard renders masked totals, Kullanıcılar menu absent, fixture user deleted post-run via admin API (confirmed /api/users count back to 3)"
+    },
+    {
+      "criterion": "Satış rolü yetkileri çalışıyor",
+      "name": "test_tscheck_satis_role_permissions.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: login 200 rol=satis, permissions exclude kullanici:yonet/muhasebe:duzenle/sandik:yonet"
+    },
+    {
+      "criterion": "Satış rolü yetkileri çalışıyor - UI surface",
+      "name": "satis-role-restricted-buttons",
+      "lane": "browser",
+      "status": "flaky",
+      "evidence": "First rerun failed with 'Timeout waiting input[type=email]' + 4x console 429 errors (transient rate-limit from running checks back-to-back); solo rerun 20s later PASSED cleanly with all 4 screenshots captured (disabled Muhasebe/Sandık buttons, enabled Kalem button)"
+    },
+    {
+      "criterion": "Aylık rapor dönem doğrulaması (SEC-003)",
+      "name": "test_tscheck_monthly_report_period_validation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: ay=2026- -> 400, ay=2026-13 -> 400, ay=2026-09 -> 200"
+    },
+    {
+      "criterion": "Aylık rapor dönem doğrulaması (SEC-003) - UI surface",
+      "name": "monthly-report-page-renders",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check: /aylik-rapor renders TRY summary + kur breakdown"
+    },
+    {
+      "criterion": "Proje aramasında regex injection yok",
+      "name": "test_tscheck_project_search_regex_safety.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: catastrophic regex q param -> 200, no 500"
+    },
+    {
+      "criterion": "Bayi portalı izolasyonu korunuyor",
+      "name": "test_tscheck_dealer_portal_isolation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Rerun: portal login 200, own project only, cross-project proforma 404, /api/projects with portal cookie -> 401"
+    },
+    {
+      "criterion": "Bayi portalı izolasyonu korunuyor - UI surface",
+      "name": "dealer-portal-shows-only-own-project",
+      "lane": "browser",
+      "status": "flaky",
+      "evidence": "First rerun failed (same transient 429 rate-limit, input[type=email] timeout); solo rerun 25s later PASSED cleanly showing PRG-2026-005 only"
+    },
+    {
+      "criterion": "Marka ve isim ayarları bozulmadı",
+      "name": "branding-and-settings-page",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Rerun persisted check: DIAGONAL branding + /tanimlar settings cards render"
+    }
+  ]
+}

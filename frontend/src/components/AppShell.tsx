@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/panel", label: "Kontrol Paneli", icon: LayoutDashboard, testid: "nav-dashboard", perm: "" },
   { to: "/projeler", label: "Projeler", icon: FolderKanban, testid: "nav-projects", perm: "proje:goruntule" },
-  { to: "/bayiler", label: "Bayi Kartları", icon: Building2, testid: "nav-dealers", perm: "bayi:goruntule" },
+  { to: "/bayiler", label: "Bayi Kartları", icon: Building2, testid: "nav-dealers", perm: "muhasebe:goruntule" },
   { to: "/rapor", label: "Günlük Rapor", icon: CalendarRange, testid: "nav-report", perm: "rapor:goruntule" },
   { to: "/aylik-rapor", label: "Aylık Rapor", icon: CalendarDays, testid: "nav-monthly", perm: "rapor:goruntule" },
   { to: "/tanimlar", label: "Tanımlar", icon: SlidersHorizontal, testid: "nav-settings", perm: "tanim:yonet" },

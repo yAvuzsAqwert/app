@@ -174,7 +174,7 @@ export default function ProjectDetail() {
     queryKey: ["documents", id],
     queryFn: () => apiGet<DocumentMeta[]>(`/projects/${id}/evraklar`),
     retry: false,
-    enabled: !!id,
+    enabled: !!id && can("evrak:goruntule"),
   });
 
   const upload = useMutation({
