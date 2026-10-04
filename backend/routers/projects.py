@@ -1,6 +1,6 @@
 """Project pipeline routes: projects, items (kalemler), crates (sandıklar), accounting, activity."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,6 +14,7 @@ from models.schemas import (
     Activity,
     CrateBase,
     DashboardStats,
+    DeadlineAlert,
     ItemBase,
     Muhasebe,
     NoteInput,
@@ -71,6 +72,51 @@ async def _next_code() -> str:
         if not await db.projects.find_one({"proje_kodu": code}):
             return code
         count += 1
+
+
+ALERT_WINDOW_DAYS = 7
+# Stages past loading no longer need a production/dispatch warning.
+ALERT_EXCLUDED_STAGES = {"yuklendi_sevk", "fatura", "gumruk_beyanname", "tamamlandi"}
+
+
+def build_alerts(projects: List[Project]) -> List[DeadlineAlert]:
+    """Termin ve sevk tarihlerine göre uyarılar — 'bugün' anchorı sunucudadır."""
+    today = date.fromisoformat(today_iso())
+    out: List[DeadlineAlert] = []
+    for p in projects:
+        if p.arsiv or p.durum in ALERT_EXCLUDED_STAGES:
+            continue
+        for tip, raw in (("termin", p.termin_tarihi), ("sevk", p.sevk_tarihi)):
+            if not raw:
+                continue
+            try:
+                when = date.fromisoformat(raw)
+            except ValueError:
+                continue
+            kalan = (when - today).days
+            if kalan < 0:
+                seviye = "gecikti"
+            elif kalan == 0:
+                seviye = "bugun"
+            elif kalan <= ALERT_WINDOW_DAYS:
+                seviye = "yaklasiyor"
+            else:
+                continue
+            out.append(
+                DeadlineAlert(
+                    proje_id=p.id,
+                    proje_kodu=p.proje_kodu,
+                    proje_adi=p.proje_adi,
+                    musteri=p.musteri,
+                    firma=p.firma,
+                    durum=p.durum,
+                    tip=tip,
+                    tarih=raw,
+                    kalan_gun=kalan,
+                    seviye=seviye,
+                )
+            )
+    return sorted(out, key=lambda a: a.kalan_gun)
 
 
 async def _refresh_item_count(proje_id: str) -> None:
@@ -370,6 +416,7 @@ async def dashboard(user: dict = Depends(current_user)):
         key=lambda p: p.sevk_tarihi or p.termin_tarihi or "9999",
     )[:8]
     acts = await db.activities.find().sort("created_at", -1).to_list(15)
+    uyarilar = build_alerts(aktif)
 
     return DashboardStats(
         toplam_proje=len(projects),
@@ -384,7 +431,16 @@ async def dashboard(user: dict = Depends(current_user)):
         para_birimi_dagilimi=para,
         yaklasan_sevkiyatlar=yaklasan,
         son_hareketler=[Activity(**_aware(a)) for a in acts],
+        uyarilar=uyarilar,
+        geciken_adet=len([u for u in uyarilar if u.seviye == "gecikti"]),
+        yaklasan_adet=len([u for u in uyarilar if u.seviye in ("bugun", "yaklasiyor")]),
     )
+
+
+@router.get("/alerts", response_model=List[DeadlineAlert])
+async def alerts(user: dict = Depends(current_user)):
+    docs = await db.projects.find({"arsiv": False}).to_list(1000)
+    return build_alerts([Project(**_aware(d)) for d in docs])
 
 
 @router.get("/stages", response_model=List[StageCount])

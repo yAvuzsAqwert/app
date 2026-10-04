@@ -4,12 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Search, Archive, ArchiveRestore } from "lucide-react";
 import { apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
-import type { Project, ProjectPayload } from "@/lib/types";
+import type { DeadlineAlert, Project, ProjectPayload } from "@/lib/types";
 import {
+  ALERT_TONES,
   MONTAJ_TIPLERI,
   PARA_BIRIMLERI,
   SATIS_TIPLERI,
   STAGES,
+  alertText,
   fmtDate,
   fmtMoney,
 } from "@/lib/constants";
@@ -102,6 +104,18 @@ export default function Projects() {
     retry: false,
   });
   const projects = isError ? [] : (data ?? []);
+
+  // Termin/yükleme uyarıları: satırda rozet olarak gösterilir, sunucu hesaplar.
+  const { data: alertData } = useQuery({
+    queryKey: ["alerts"],
+    queryFn: () => apiGet<DeadlineAlert[]>("/alerts"),
+    retry: false,
+  });
+  const alertByProject = new Map<string, DeadlineAlert>();
+  for (const a of alertData ?? []) {
+    const current = alertByProject.get(a.proje_id);
+    if (!current || a.kalan_gun < current.kalan_gun) alertByProject.set(a.proje_id, a);
+  }
 
   const create = useMutation({
     mutationFn: (payload: ProjectPayload) => apiPost<Project>("/projects", payload),
@@ -387,6 +401,14 @@ export default function Projects() {
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {fmtDate(p.sevk_tarihi ?? p.termin_tarihi)}
+                      {alertByProject.has(p.id) && (
+                        <span
+                          className={`mt-1 block w-fit rounded-full border px-1.5 py-0.5 text-[10px] ${ALERT_TONES[alertByProject.get(p.id)!.seviye] ?? ""}`}
+                          data-testid={`row-alert-${p.proje_kodu}`}
+                        >
+                          {alertText(alertByProject.get(p.id)!.kalan_gun)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button

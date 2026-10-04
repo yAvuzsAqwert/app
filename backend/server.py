@@ -14,6 +14,9 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
 from routers.auth import router as auth_router
+from routers.dealers import router as dealers_router
+from routers.documents import router as documents_router
+from routers.proforma import router as proforma_router
 from routers.projects import router as projects_router
 from routers.reports import router as reports_router
 
@@ -40,6 +43,9 @@ async def root():
 
 api_router.include_router(auth_router)
 api_router.include_router(projects_router)
+api_router.include_router(dealers_router)
+api_router.include_router(documents_router)
+api_router.include_router(proforma_router)
 api_router.include_router(reports_router)
 
 # Include the router in the main app — must stay the last registration

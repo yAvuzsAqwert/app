@@ -58,6 +58,39 @@ export const URUN_TIPLERI = [
 
 export const MONTAJ_TIPLERI = ["Duvara Montaj", "Serbest Ayaklı", "Ankastre", "Köşe Montaj"];
 
+export const DOC_CATEGORIES: Record<string, string> = {
+  cizim: "Teknik Çizim",
+  paketleme: "Paketleme Listesi",
+  beyanname: "Gümrük Beyannamesi",
+  fatura: "Fatura",
+  proforma: "Proforma",
+  diger: "Diğer",
+};
+
+export const ALERT_TONES: Record<string, string> = {
+  gecikti: "text-red-300 bg-red-500/15 border-red-500/40",
+  bugun: "text-orange-200 bg-orange-500/20 border-orange-400/50",
+  yaklasiyor: "text-amber-300 bg-amber-500/10 border-amber-500/30",
+};
+
+export const ALERT_LABELS: Record<string, string> = {
+  gecikti: "Gecikti",
+  bugun: "Bugün",
+  yaklasiyor: "Yaklaşıyor",
+};
+
+export const alertText = (kalan: number) => {
+  if (kalan < 0) return `${Math.abs(kalan)} gün gecikti`;
+  if (kalan === 0) return "Bugün";
+  return `${kalan} gün kaldı`;
+};
+
+export const fmtBytes = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+};
+
 export const fmtMoney = (value: number, currency = "") =>
   `${new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     value || 0,

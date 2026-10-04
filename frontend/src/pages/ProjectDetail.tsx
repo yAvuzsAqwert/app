@@ -14,16 +14,23 @@ import {
   Trash2,
   FileText,
   StickyNote,
+  FileDown,
+  Paperclip,
+  Upload,
+  Download,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api";
 import type {
   CratePayload,
+  DocumentMeta,
   ItemPayload,
   Muhasebe,
   ProjectDetail as ProjectDetailT,
   ProjectPayload,
 } from "@/lib/types";
 import {
+  DOC_CATEGORIES,
+  fmtBytes,
   FATURA_TIPLERI,
   MONTAJ_TIPLERI,
   ODEME_DURUMLARI,
@@ -133,6 +140,9 @@ export default function ProjectDetail() {
   const [itemOpen, setItemOpen] = useState(false);
   const [crateOpen, setCrateOpen] = useState(false);
   const [note, setNote] = useState("");
+  const [dosya, setDosya] = useState<File | null>(null);
+  const [kategori, setKategori] = useState("cizim");
+  const [docAciklama, setDocAciklama] = useState("");
 
   useEffect(() => {
     if (!project) return;
@@ -145,7 +155,68 @@ export default function ProjectDetail() {
     qc.invalidateQueries({ queryKey: ["project", id] });
     qc.invalidateQueries({ queryKey: ["projects"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["alerts"] });
+    qc.invalidateQueries({ queryKey: ["dealers"] });
+    qc.invalidateQueries({ queryKey: ["documents", id] });
   };
+
+  // ---- evraklar
+  const { data: docs } = useQuery({
+    queryKey: ["documents", id],
+    queryFn: () => apiGet<DocumentMeta[]>(`/projects/${id}/evraklar`),
+    retry: false,
+    enabled: !!id,
+  });
+
+  const upload = useMutation({
+    mutationFn: async () => {
+      if (!dosya) throw new Error("no file");
+      const body = new FormData();
+      body.append("file", dosya);
+      body.append("kategori", kategori);
+      body.append("aciklama", docAciklama);
+      const res = await fetch(`/api/projects/${id}/evraklar`, { method: "POST", body });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(
+          (err as { detail?: string } | null)?.detail ?? "Evrak yüklenemedi",
+        );
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidate();
+      setDosya(null);
+      setDocAciklama("");
+      toast.success("Evrak yüklendi");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const delDoc = useMutation({
+    mutationFn: (docId: string) => apiDelete(`/evraklar/${docId}`),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Evrak silindi");
+    },
+    onError: (e) => toast.error(errText(e)),
+  });
+
+  const proforma = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/projects/${id}/proforma`);
+      if (!res.ok) throw new Error("Proforma oluşturulamadı");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `proforma-${project?.proje_kodu ?? id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => toast.success("Proforma PDF indirildi"),
+    onError: () => toast.error("Proforma oluşturulamadı"),
+  });
 
   const stage = useMutation({
     mutationFn: (durum: string) => apiPatch(`/projects/${id}/stage`, { durum, not: "" }),
@@ -274,6 +345,15 @@ export default function ProjectDetail() {
         <Link to="/projeler" className={buttonVariants({ variant: "outline", size: "sm" })}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Projeler
         </Link>
+        <Button
+          size="sm"
+          onClick={() => proforma.mutate()}
+          disabled={proforma.isPending}
+          data-testid="proforma-download-button"
+        >
+          <FileDown className="mr-2 h-4 w-4" />
+          {proforma.isPending ? "Hazırlanıyor…" : "Proforma PDF"}
+        </Button>
         {project && <StageBadge durum={project.durum} />}
         {project && (
           <Badge variant="outline" className="font-mono">
@@ -329,6 +409,9 @@ export default function ProjectDetail() {
           </TabsTrigger>
           <TabsTrigger value="bilgiler" data-testid="tab-bilgiler">
             <FileText className="mr-2 h-4 w-4" /> Proje Bilgileri
+          </TabsTrigger>
+          <TabsTrigger value="evraklar" data-testid="tab-evraklar">
+            <Paperclip className="mr-2 h-4 w-4" /> Evraklar ({docs?.length ?? 0})
           </TabsTrigger>
           <TabsTrigger value="gecmis" data-testid="tab-gecmis">
             <History className="mr-2 h-4 w-4" /> İşlem Geçmişi
@@ -916,6 +999,143 @@ export default function ProjectDetail() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ---------- Documents ---------- */}
+        <TabsContent value="evraklar">
+          <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+            <Card data-testid="documents-card">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Proje Evrakları ({docs?.length ?? 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {docs?.length ? (
+                  <Table data-testid="documents-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Dosya</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead className="text-right">Boyut</TableHead>
+                        <TableHead>Yükleyen</TableHead>
+                        <TableHead>Tarih</TableHead>
+                        <TableHead className="text-right">İşlem</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {docs.map((d) => (
+                        <TableRow
+                          key={d.id}
+                          className="transition-colors duration-100 hover:bg-secondary/50"
+                          data-testid={`document-row-${d.id}`}
+                        >
+                          <TableCell className="max-w-64">
+                            <p className="truncate text-sm">{d.dosya_adi}</p>
+                            {d.aciklama && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {d.aciklama}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">
+                              {DOC_CATEGORIES[d.kategori] ?? d.kategori}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {fmtBytes(d.boyut)}
+                          </TableCell>
+                          <TableCell className="text-xs">{d.yukleyen || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {fmtDateTime(d.created_at)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <a
+                              href={`/api/evraklar/${d.id}/indir`}
+                              className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                              data-testid={`download-document-${d.id}`}
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => delDoc.mutate(d.id)}
+                              data-testid={`delete-document-${d.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <EmptyState
+                    mesaj="Henüz evrak yüklenmemiş. Çizim, paketleme listesi veya beyanname ekleyebilirsiniz."
+                    icon={<Paperclip className="h-6 w-6" />}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card data-testid="upload-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Upload className="h-4 w-4 text-primary" /> Evrak Yükle
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Kategori</Label>
+                  <Select value={kategori} onValueChange={(v: string) => setKategori(v)}>
+                    <SelectTrigger data-testid="document-category-select">
+                      <SelectValue>{(v) => DOC_CATEGORIES[v as string] ?? "Diğer"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(DOC_CATEGORIES).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>
+                          {v}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="doc-file">Dosya</Label>
+                  <Input
+                    id="doc-file"
+                    type="file"
+                    onChange={(e) => setDosya(e.target.files?.[0] ?? null)}
+                    data-testid="document-file-input"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    En fazla 10 MB · PDF, resim, Excel, Word, DWG/DXF
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="doc-note">Açıklama</Label>
+                  <Input
+                    id="doc-note"
+                    value={docAciklama}
+                    onChange={(e) => setDocAciklama(e.target.value)}
+                    placeholder="Rev.3 çizim, sandık listesi…"
+                    data-testid="document-note-input"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={!dosya || upload.isPending}
+                  onClick={() => upload.mutate()}
+                  data-testid="upload-document-button"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {upload.isPending ? "Yükleniyor…" : "Evrakı Yükle"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* ---------- Timeline ---------- */}

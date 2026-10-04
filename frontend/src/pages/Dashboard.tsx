@@ -8,10 +8,12 @@ import {
   Truck,
   Activity as ActivityIcon,
   FolderKanban,
+  AlertTriangle,
+  Clock,
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import type { DashboardStats } from "@/lib/types";
-import { fmtDate, fmtDateTime, fmtMoney, stageOf } from "@/lib/constants";
+import { ALERT_LABELS, ALERT_TONES, alertText, fmtDate, fmtDateTime, fmtMoney, stageOf } from "@/lib/constants";
 import { PageHeader, EmptyState } from "@/components/AppShell";
 import { StageBadge } from "@/components/StageBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +82,24 @@ export default function Dashboard() {
         title="Komuta Paneli"
         subtitle="Tüm projelerin aşama, finans ve sevkiyat özeti"
       >
+        {!!stats?.geciken_adet && (
+          <Badge
+            className="gap-1.5 border-red-500/40 bg-red-500/15 text-red-300"
+            variant="outline"
+            data-testid="header-overdue-badge"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" /> {stats.geciken_adet} gecikmiş
+          </Badge>
+        )}
+        {!!stats?.yaklasan_adet && (
+          <Badge
+            className="gap-1.5 border-amber-500/40 bg-amber-500/10 text-amber-300"
+            variant="outline"
+            data-testid="header-upcoming-badge"
+          >
+            <Clock className="h-3.5 w-3.5" /> {stats.yaklasan_adet} yaklaşan
+          </Badge>
+        )}
         <Badge variant="outline" className="font-mono" data-testid="dashboard-active-count">
           {stats?.aktif_proje ?? 0} aktif / {stats?.toplam_proje ?? 0} proje
         </Badge>
@@ -87,6 +107,45 @@ export default function Dashboard() {
           <FolderKanban className="mr-2 h-4 w-4" /> Projelere Git
         </Link>
       </PageHeader>
+
+      {/* Termin / yükleme uyarıları — 7 günlük pencere, sunucu tarafında hesaplanır */}
+      {!!stats?.uyarilar.length && (
+        <Card
+          className="mb-6 border-amber-500/30 bg-amber-500/[0.04]"
+          data-testid="alerts-card"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-amber-400" /> Termin & Yükleme Uyarıları
+              <span className="font-mono text-xs font-normal text-muted-foreground">
+                (7 gün içinde veya gecikmiş)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2.5">
+            {stats.uyarilar.map((u) => (
+              <Link
+                key={`${u.proje_id}-${u.tip}`}
+                to={`/projeler/${u.proje_id}`}
+                data-testid={`alert-${u.proje_kodu}-${u.tip}`}
+                className={`flex min-w-56 flex-col gap-1 rounded-md border px-3 py-2 transition-transform duration-150 hover:-translate-y-0.5 ${ALERT_TONES[u.seviye] ?? ""}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-[11px] font-semibold">{u.proje_kodu}</span>
+                  <span className="rounded-full bg-black/25 px-2 py-0.5 font-mono text-[10px] uppercase">
+                    {ALERT_LABELS[u.seviye] ?? u.seviye}
+                  </span>
+                </div>
+                <span className="truncate text-xs">{u.proje_adi || u.musteri}</span>
+                <span className="font-mono text-[11px] opacity-90">
+                  {u.tip === "sevk" ? "Yükleme" : "Üretim termini"} · {fmtDate(u.tarih)} ·{" "}
+                  {alertText(u.kalan_gun)}
+                </span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {kpis.map(({ label, value, icon: Icon, tone, testid }) => (

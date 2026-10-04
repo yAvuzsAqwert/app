@@ -240,6 +240,21 @@ class StageCount(BaseModel):
     tutar: float
 
 
+class DeadlineAlert(BaseModel):
+    """Termin / yükleme uyarısı — 'gecikti' | 'bugun' | 'yaklasiyor'."""
+
+    proje_id: str
+    proje_kodu: str
+    proje_adi: str
+    musteri: str
+    firma: str
+    durum: str
+    tip: str  # termin | sevk
+    tarih: str
+    kalan_gun: int
+    seviye: str  # gecikti | bugun | yaklasiyor
+
+
 class DashboardStats(BaseModel):
     toplam_proje: int
     aktif_proje: int
@@ -253,6 +268,53 @@ class DashboardStats(BaseModel):
     para_birimi_dagilimi: List[StageCount]
     yaklasan_sevkiyatlar: List[Project]
     son_hareketler: List[Activity]
+    uyarilar: List[DeadlineAlert]
+    geciken_adet: int
+    yaklasan_adet: int
+
+
+# ---------- dealers ----------
+class DealerCard(BaseModel):
+    anahtar: str  # "firma|ulke"
+    firma: str
+    ulke: str
+    musteriler: List[str]
+    proje_adet: int
+    aktif_adet: int
+    arsiv_adet: int
+    para_birimi: str
+    ciro: float
+    tahsilat: float
+    acik_bakiye: float
+    net_kar: float
+    kar_yuzdesi: float
+    son_proje_tarihi: str
+    asama_dagilimi: List[StageCount]
+    projeler: List[Project]
+
+
+# ---------- documents ----------
+class DocumentMeta(BaseModel):
+    id: str = Field(default_factory=_uid)
+    proje_id: str
+    dosya_adi: str
+    kategori: str = "diger"  # cizim | paketleme | beyanname | fatura | proforma | diger
+    boyut: int = 0
+    content_type: str = ""
+    aciklama: str = ""
+    yukleyen: str = ""
+    file_id: str = ""
+    created_at: datetime = Field(default_factory=now_utc)
+
+
+DOC_CATEGORIES = {
+    "cizim": "Teknik Çizim",
+    "paketleme": "Paketleme Listesi",
+    "beyanname": "Gümrük Beyannamesi",
+    "fatura": "Fatura",
+    "proforma": "Proforma",
+    "diger": "Diğer",
+}
 
 
 class DailyReport(BaseModel):

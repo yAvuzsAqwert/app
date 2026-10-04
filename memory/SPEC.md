@@ -25,16 +25,34 @@ Tüm endpointler `api_router` üzerinde `/api` altında. Frontend `src/lib/api.t
 - `project_crates` — sandik_no, icerik, taban/uzunluk/yukseklik_cm, adet, brut_kg, hacim_cbm (auto)
 - `activities` — her aşama/kalem/sandık/muhasebe/not işlemi loglanır, `gun` alanı server-anchored
 
+## Ek modüller (2. tur)
+- **Bayi kartları** (`routers/dealers.py`): projeler `firma|ulke` anahtarıyla gruplanır; ciro,
+  tahsilat, açık bakiye, net kar, kar %, aşama dağılımı ve proje listesi döner. Bayi birden fazla
+  para birimi taşıyorsa `para_birimi` = "KARMA".
+- **Termin uyarıları** (`routers/projects.py::build_alerts`): 7 günlük pencere, `today_iso()`
+  anchorlı. `termin_tarihi` ve `sevk_tarihi` için ayrı uyarı; seviye `gecikti|bugun|yaklasiyor`.
+  Sevk sonrası aşamalar (yuklendi_sevk, fatura, gumruk_beyanname, tamamlandi) ve arşiv hariç.
+- **Proforma PDF** (`routers/proforma.py`): reportlab + Liberation Sans (Türkçe glif). Başlık
+  `COMPANY_NAME` env (varsayılan **DIAGONAL**). Kalem tablosu teknik özellik satırıyla, iskonto /
+  transfer / genel toplam, banka + not bloğu.
+- **Evraklar** (`routers/documents.py`): GridFS bucket `evraklar` + `documents` meta koleksiyonu.
+  Maks 10 MB; pdf/resim/xlsx/docx/dwg/dxf/csv/txt. Kategoriler: cizim, paketleme, beyanname,
+  fatura, proforma, diger. Disk kullanılmaz (deploy güvenli).
+
 ## Endpointler
 `/api/auth/{register,login,logout,me}`, `/api/projects` (CRUD + `?durum&arsiv&satis_tipi&q`),
 `/api/projects/{id}` (detail: project+kalemler+sandiklar+hareketler),
 `PATCH /api/projects/{id}/stage`, `PATCH /api/projects/{id}/archive`,
 `PUT /api/projects/{id}/muhasebe`, `/api/projects/{id}/kalemler`, `/api/kalemler/{id}`,
 `/api/projects/{id}/sandiklar`, `/api/sandiklar/{id}`, `/api/projects/{id}/notlar`,
-`/api/dashboard`, `/api/stages`, `/api/reports/daily`, `/api/reports/daily/export` (xlsx, openpyxl).
+`/api/dashboard`, `/api/stages`, `/api/alerts`, `/api/reports/daily`,
+`/api/reports/daily/export` (xlsx), `/api/dealers`, `/api/dealers/{anahtar}`,
+`/api/projects/{id}/proforma` (pdf), `/api/projects/{id}/evraklar` (GET+POST multipart),
+`/api/evraklar/{id}/indir`, `DELETE /api/evraklar/{id}`, `/api/evrak-kategorileri`.
 
 ## Rotalar (frontend)
-`/giris` (public), `/panel`, `/projeler`, `/projeler/:id`, `/rapor` — hepsi cookie session ile korumalı.
+`/giris` (public), `/panel`, `/projeler`, `/projeler/:id`, `/bayiler`, `/rapor` — hepsi cookie session ile korumalı.
+Proje detay sekmeleri: Ürün Kalemleri, Muhasebe & Tahsilat, Sandık & Sevkiyat, Proje Bilgileri, Evraklar, İşlem Geçmişi.
 
 ## Seed (backend/seed.py — idempotent, koleksiyonları sıfırlar)
 11 proje (PRG-2026-001..011) Almanya/Fransa/BAE/Hollanda/Türkiye/Irak/İngiltere/Avusturya,

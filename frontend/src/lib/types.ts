@@ -127,6 +127,51 @@ export interface StageCount {
   tutar: number;
 }
 
+export interface DeadlineAlert {
+  proje_id: string;
+  proje_kodu: string;
+  proje_adi: string;
+  musteri: string;
+  firma: string;
+  durum: string;
+  tip: string;
+  tarih: string;
+  kalan_gun: number;
+  seviye: string;
+}
+
+export interface DealerCard {
+  anahtar: string;
+  firma: string;
+  ulke: string;
+  musteriler: string[];
+  proje_adet: number;
+  aktif_adet: number;
+  arsiv_adet: number;
+  para_birimi: string;
+  ciro: number;
+  tahsilat: number;
+  acik_bakiye: number;
+  net_kar: number;
+  kar_yuzdesi: number;
+  son_proje_tarihi: string;
+  asama_dagilimi: StageCount[];
+  projeler: Project[];
+}
+
+export interface DocumentMeta {
+  id: string;
+  proje_id: string;
+  dosya_adi: string;
+  kategori: string;
+  boyut: number;
+  content_type: string;
+  aciklama: string;
+  yukleyen: string;
+  file_id: string;
+  created_at: string;
+}
+
 export interface DashboardStats {
   toplam_proje: number;
   aktif_proje: number;
@@ -140,6 +185,9 @@ export interface DashboardStats {
   para_birimi_dagilimi: StageCount[];
   yaklasan_sevkiyatlar: Project[];
   son_hareketler: Activity[];
+  uyarilar: DeadlineAlert[];
+  geciken_adet: number;
+  yaklasan_adet: number;
 }
 
 export interface DailyReport {
